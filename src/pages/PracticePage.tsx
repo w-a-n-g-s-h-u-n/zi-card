@@ -55,7 +55,11 @@ export function PracticePage({
         <IconButton icon={ListChecks} label="完成" title="完成" variant="quiet" onClick={onFinish} />
       </header>
 
-      <ProgressDots total={session.queue.length} current={session.currentIndex} />
+      <ProgressDots
+        current={session.currentIndex}
+        results={session.queue.map((queueItem) => session.results[queueItem.char])}
+        total={session.queue.length}
+      />
 
       <PracticeLayout>
         {session.mode === "flashcard" ? (

@@ -1,6 +1,10 @@
 let activeUtterance: SpeechSynthesisUtterance | null = null;
+let activeAudio: HTMLAudioElement | null = null;
 let voiceLoadPromise: Promise<void> | null = null;
 let speakTimer: number | null = null;
+let speechFallbackTimer: number | null = null;
+
+const SPEECH_START_TIMEOUT_MS = 900;
 
 function getSpeechSynthesis(): SpeechSynthesis | null {
   if (
@@ -20,6 +24,60 @@ function getVoices(synth: SpeechSynthesis): SpeechSynthesisVoice[] {
   } catch {
     return [];
   }
+}
+
+function getUserAgent(): string {
+  return window.navigator?.userAgent?.toLowerCase() ?? "";
+}
+
+function shouldPreferRemoteAudio(): boolean {
+  const userAgent = getUserAgent();
+
+  return (
+    userAgent.includes("android") ||
+    userAgent.includes("micromessenger") ||
+    userAgent.includes("miuibrowser") ||
+    userAgent.includes("xiaomi")
+  );
+}
+
+function getRemoteAudioUrls(char: string): string[] {
+  const text = encodeURIComponent(char);
+
+  return [
+    `https://dict.youdao.com/dictvoice?audio=${text}&le=zh`,
+    `https://fanyi.baidu.com/gettts?lan=zh&text=${text}&spd=3&source=web`,
+  ];
+}
+
+function clearSpeechTimers(): void {
+  if (speakTimer) {
+    window.clearTimeout(speakTimer);
+    speakTimer = null;
+  }
+
+  if (speechFallbackTimer) {
+    window.clearTimeout(speechFallbackTimer);
+    speechFallbackTimer = null;
+  }
+}
+
+function stopActiveAudio(): void {
+  if (!activeAudio) {
+    return;
+  }
+
+  activeAudio.pause();
+  activeAudio.removeAttribute("src");
+  activeAudio.load();
+  activeAudio = null;
+}
+
+function stopActivePlayback(): void {
+  clearSpeechTimers();
+  stopActiveAudio();
+  getSpeechSynthesis()?.cancel();
+  activeUtterance = null;
 }
 
 function waitForVoices(synth: SpeechSynthesis): Promise<void> {
@@ -90,14 +148,114 @@ function createCharacterUtterance(char: string, synth: SpeechSynthesis): SpeechS
   return utterance;
 }
 
-function playCharacter(char: string, synth: SpeechSynthesis): void {
-  activeUtterance = createCharacterUtterance(char, synth);
-
-  if (synth.paused) {
-    synth.resume();
+async function playRemoteAudio(char: string): Promise<boolean> {
+  if (typeof window.Audio !== "function") {
+    return false;
   }
 
-  synth.speak(activeUtterance);
+  stopActiveAudio();
+
+  for (const url of getRemoteAudioUrls(char)) {
+    const audio = new Audio(url);
+    activeAudio = audio;
+
+    audio.onended = () => {
+      if (activeAudio === audio) {
+        activeAudio = null;
+      }
+    };
+    audio.onerror = () => {
+      if (activeAudio === audio) {
+        activeAudio = null;
+      }
+    };
+
+    try {
+      await audio.play();
+      return true;
+    } catch {
+      if (activeAudio === audio) {
+        stopActiveAudio();
+      }
+    }
+  }
+
+  return false;
+}
+
+function playSpeechWithStartCheck(char: string, synth: SpeechSynthesis): Promise<boolean> {
+  return new Promise((resolve) => {
+    let settled = false;
+    activeUtterance = createCharacterUtterance(char, synth);
+
+    const settle = (started: boolean) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+
+      if (speechFallbackTimer) {
+        window.clearTimeout(speechFallbackTimer);
+        speechFallbackTimer = null;
+      }
+
+      resolve(started);
+    };
+
+    activeUtterance.onstart = () => {
+      settle(true);
+    };
+    activeUtterance.onend = () => {
+      activeUtterance = null;
+    };
+    activeUtterance.onerror = () => {
+      activeUtterance = null;
+      settle(false);
+    };
+
+    if (synth.paused) {
+      synth.resume();
+    }
+
+    try {
+      synth.speak(activeUtterance);
+      speechFallbackTimer = window.setTimeout(() => {
+        synth.cancel();
+        activeUtterance = null;
+        settle(false);
+      }, SPEECH_START_TIMEOUT_MS);
+    } catch {
+      activeUtterance = null;
+      settle(false);
+    }
+  });
+}
+
+async function speakWithRemoteAudioFirst(char: string): Promise<void> {
+  const played = await playRemoteAudio(char);
+
+  if (played) {
+    return;
+  }
+
+  const synth = getSpeechSynthesis();
+
+  if (!synth) {
+    return;
+  }
+
+  await waitForVoices(synth);
+  await playSpeechWithStartCheck(char, synth);
+}
+
+async function speakWithWebSpeechFirst(char: string, synth: SpeechSynthesis): Promise<void> {
+  await waitForVoices(synth);
+  const started = await playSpeechWithStartCheck(char, synth);
+
+  if (!started) {
+    await playRemoteAudio(char);
+  }
 }
 
 export function prepareSpeechSynthesis(): void {
@@ -118,48 +276,20 @@ export function speakCharacter(char: string): boolean {
   const synth = getSpeechSynthesis();
   const text = char.trim();
 
-  if (!synth || !text) {
+  if (!text) {
     return false;
   }
 
-  if (speakTimer) {
-    window.clearTimeout(speakTimer);
+  stopActivePlayback();
+
+  if (shouldPreferRemoteAudio() || !synth) {
+    void speakWithRemoteAudioFirst(text);
+    return true;
+  }
+
+  speakTimer = window.setTimeout(() => {
     speakTimer = null;
-  }
-
-  const speak = () => {
-    try {
-      playCharacter(text, synth);
-    } catch {
-      activeUtterance = null;
-    }
-  };
-
-  const speakAfterCancel = () => {
-    synth.cancel();
-    speakTimer = window.setTimeout(() => {
-      speakTimer = null;
-      speak();
-    }, 80);
-  };
-
-  if (getVoices(synth).length === 0) {
-    void waitForVoices(synth).then(() => {
-      if (synth.speaking || synth.pending) {
-        speakAfterCancel();
-        return;
-      }
-
-      speak();
-    });
-    return true;
-  }
-
-  if (synth.speaking || synth.pending) {
-    speakAfterCancel();
-    return true;
-  }
-
-  speak();
+    void speakWithWebSpeechFirst(text, synth);
+  }, 80);
   return true;
 }

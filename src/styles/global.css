@@ -563,15 +563,44 @@ h2 {
   flex: 0 0 auto;
   border-radius: 999px;
   background: #c6d2dd;
+  transition:
+    width 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease;
 }
 
 .progress-dot[data-done="true"] {
-  background: var(--color-primary);
+  background: #9fb0bf;
 }
 
 .progress-dot[data-active="true"] {
   width: 22px;
+  background: var(--color-blue);
+  box-shadow: 0 0 0 3px rgb(63 115 216 / 18%);
+}
+
+.progress-dot[data-result="unknown"] {
+  background: var(--color-coral);
+}
+
+.progress-dot[data-result="review"] {
   background: var(--color-yellow);
+}
+
+.progress-dot[data-result="known"] {
+  background: var(--color-primary);
+}
+
+.progress-dot[data-active="true"][data-result="unknown"] {
+  box-shadow: 0 0 0 3px rgb(232 93 90 / 20%);
+}
+
+.progress-dot[data-active="true"][data-result="review"] {
+  box-shadow: 0 0 0 3px rgb(242 184 75 / 26%);
+}
+
+.progress-dot[data-active="true"][data-result="known"] {
+  box-shadow: 0 0 0 3px rgb(20 124 114 / 22%);
 }
 
 .practice-layout {
