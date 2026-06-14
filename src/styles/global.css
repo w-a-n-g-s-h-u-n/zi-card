@@ -417,18 +417,6 @@ h2 {
   white-space: nowrap;
 }
 
-.recent-main-text {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-
-.recent-pinyin-text {
-  color: var(--color-muted);
-  font-size: 0.78rem;
-  font-weight: 720;
-}
-
 .recent-row-actions {
   display: flex;
   align-items: center;
@@ -450,6 +438,18 @@ h2 {
 .recent-icon-action--danger {
   background: var(--color-coral-soft);
   color: #9c3330;
+}
+
+.ui-button:focus-visible,
+.icon-button:focus-visible,
+.segment:focus-visible,
+.toggle-root:focus-visible,
+.pinyin-choice:focus-visible,
+.recent-main-action:focus-visible,
+.recent-icon-action:focus-visible {
+  outline: 3px solid #0f6f66;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px rgb(20 124 114 / 18%);
 }
 
 .empty-recent {

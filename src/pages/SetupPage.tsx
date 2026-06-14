@@ -186,7 +186,6 @@ export function SetupPage({
                 {recentLists.map((drafts) => {
                   const key = getRecentListKey(drafts);
                   const text = joinCharacters(drafts.map((draft) => draft.char));
-                  const pinyinText = drafts.map((draft) => draft.pinyin).filter(Boolean).join(" ");
 
                   return (
                     <div className="recent-item" data-editing={editingRecentKey === key} key={key}>
@@ -197,10 +196,7 @@ export function SetupPage({
                         onClick={() => onUseRecent(drafts)}
                       >
                         <CheckCircle2 aria-hidden="true" size={18} />
-                        <span className="recent-main-text">
-                          <span>{text}</span>
-                          {pinyinText ? <span className="recent-pinyin-text">{pinyinText}</span> : null}
-                        </span>
+                        <span>{text}</span>
                       </button>
                       <div className="recent-row-actions">
                         <button

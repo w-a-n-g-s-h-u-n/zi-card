@@ -34,11 +34,14 @@ import type { CharacterDraft } from "./types/character";
 import type { PracticeSession } from "./types/session";
 import { playTone } from "./speech/soundEffects";
 import { prepareSpeechSynthesis, speakCharacter } from "./speech/speechSynthesis";
+import { useRemoteFocusNavigation } from "./utils/remoteFocus";
 import { joinCharacters } from "./utils/text";
 
 type PageState = "setup" | "practice" | "result";
 
 export default function App() {
+  useRemoteFocusNavigation();
+
   const [page, setPage] = useState<PageState>("setup");
   const [inputText, setInputText] = useState("");
   const [selectedPinyins, setSelectedPinyins] = useState<Record<string, string>>({});
