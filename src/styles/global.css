@@ -20,13 +20,31 @@
   --color-blue: #3f73d8;
   --color-blue-soft: #e9efff;
   --shadow-soft: 0 18px 42px rgb(31 42 55 / 10%);
-  font-family:
+  --font-ui:
     system-ui,
     -apple-system,
     BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Noto Sans SC",
+    "Noto Sans CJK SC",
+    "Source Han Sans SC",
+    "PingFang SC",
+    "Hiragino Sans GB",
+    "Microsoft YaHei",
+    sans-serif;
+  --font-character:
+    "Noto Sans SC",
+    "Noto Sans CJK SC",
+    "Source Han Sans SC",
+    "HarmonyOS Sans SC",
+    "MiSans",
+    "OPPO Sans",
+    "Droid Sans Fallback",
     "PingFang SC",
     "Microsoft YaHei",
     sans-serif;
+  font-family: var(--font-ui);
 }
 
 * {
@@ -91,7 +109,7 @@ button {
   border-radius: 8px;
   background: var(--color-primary-soft);
   color: var(--color-primary-strong);
-  font-family: "KaiTi", "STKaiti", "Songti SC", serif;
+  font-family: var(--font-character);
   font-size: 34px;
   font-weight: 800;
 }
@@ -185,7 +203,7 @@ h2 {
   border: 1px solid var(--color-border);
   border-radius: 8px;
   background: var(--color-surface-blue);
-  font-family: "KaiTi", "STKaiti", "Songti SC", serif;
+  font-family: var(--font-character);
   font-size: 1.35rem;
   font-weight: 800;
 }
@@ -193,6 +211,20 @@ h2 {
 .empty-preview,
 .empty-recent {
   color: var(--color-muted);
+}
+
+.input-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 10px;
+}
+
+.share-status {
+  min-height: 22px;
+  color: var(--color-primary-strong);
+  font-size: 0.9rem;
+  font-weight: 760;
+  text-align: center;
 }
 
 .segmented-field,
@@ -639,7 +671,7 @@ h2 {
   position: relative;
   z-index: 1;
   align-self: center;
-  font-family: "KaiTi", "STKaiti", "Songti SC", "SimSun", serif;
+  font-family: var(--font-character);
   font-size: clamp(7.8rem, 31dvh, 17rem);
   font-weight: 900;
   line-height: 0.9;
@@ -702,7 +734,7 @@ h2 {
   border-radius: 8px;
   background: #fff;
   color: var(--color-text);
-  font-family: "KaiTi", "STKaiti", "Songti SC", serif;
+  font-family: var(--font-character);
   font-size: 2.6rem;
   font-weight: 900;
 }

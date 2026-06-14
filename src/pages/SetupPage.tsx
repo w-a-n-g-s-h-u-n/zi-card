@@ -6,6 +6,7 @@ import {
   ListRestart,
   Pencil,
   Play,
+  Share2,
   Trash2,
   Volume2,
 } from "lucide-react";
@@ -29,7 +30,10 @@ type SetupPageProps = {
   onUseRecent: (chars: string[]) => void;
   onEditRecent: (chars: string[]) => void;
   onDeleteRecent: (chars: string[]) => void;
+  onShareRecent: (chars: string[]) => void;
   editingRecentKey: string | null;
+  shareStatus: string | null;
+  onShare: () => void;
   onStart: () => void;
 };
 
@@ -42,7 +46,10 @@ export function SetupPage({
   onUseRecent,
   onEditRecent,
   onDeleteRecent,
+  onShareRecent,
   editingRecentKey,
+  shareStatus,
+  onShare,
   onStart,
 }: SetupPageProps) {
   const preview = getCharacterPreview(inputText);
@@ -93,9 +100,17 @@ export function SetupPage({
             )}
           </div>
 
-          <Button icon={Play} size="large" disabled={!canStart} onClick={onStart}>
-            开始
-          </Button>
+          <div className="input-actions">
+            <Button icon={Play} size="large" disabled={!canStart} onClick={onStart}>
+              开始
+            </Button>
+            <Button icon={Share2} variant="quiet" size="large" disabled={!canStart} onClick={onShare}>
+              分享
+            </Button>
+          </div>
+          <div className="share-status" aria-live="polite">
+            {shareStatus ?? ""}
+          </div>
         </div>
 
         <aside className="settings-panel">
@@ -167,6 +182,15 @@ export function SetupPage({
                           onClick={() => onEditRecent(chars)}
                         >
                           <Pencil aria-hidden="true" size={18} />
+                        </button>
+                        <button
+                          aria-label={`分享字表 ${text}`}
+                          className="recent-icon-action"
+                          title="分享"
+                          type="button"
+                          onClick={() => onShareRecent(chars)}
+                        >
+                          <Share2 aria-hidden="true" size={18} />
                         </button>
                         <button
                           aria-label={`删除字表 ${text}`}

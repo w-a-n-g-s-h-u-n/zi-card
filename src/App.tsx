@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createCharacterItems, getCharacterPreview } from "./core/characters";
 import { getReviewItems } from "./core/review";
 import { getSessionStats } from "./core/scoring";
+import { createSharedCharactersUrl, getSharedCharactersFromUrl } from "./core/share";
 import {
   createPracticeSession,
   createReviewSession,
@@ -25,7 +26,7 @@ import {
 import type { StoredSettings } from "./storage/storageTypes";
 import type { PracticeSession } from "./types/session";
 import { playTone } from "./speech/soundEffects";
-import { speakCharacter } from "./speech/speechSynthesis";
+import { prepareSpeechSynthesis, speakCharacter } from "./speech/speechSynthesis";
 import { joinCharacters } from "./utils/text";
 
 type PageState = "setup" | "practice" | "result";
@@ -36,13 +37,36 @@ export default function App() {
   const [settings, setSettings] = useState<StoredSettings>(DEFAULT_SETTINGS);
   const [recentLists, setRecentLists] = useState<string[][]>([]);
   const [editingRecentKey, setEditingRecentKey] = useState<string | null>(null);
+  const [shareStatus, setShareStatus] = useState<string | null>(null);
   const [session, setSession] = useState<PracticeSession | null>(null);
 
   useEffect(() => {
     const stored = readStoredData();
+    const sharedChars = getSharedCharactersFromUrl(window.location.href);
+
+    if (sharedChars.length > 0) {
+      setInputText(joinCharacters(sharedChars));
+      setShareStatus("已载入分享字表");
+    }
+
     setSettings(stored.settings);
     setRecentLists(stored.recentLists);
+    prepareSpeechSynthesis();
   }, []);
+
+  useEffect(() => {
+    if (!shareStatus) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      setShareStatus(null);
+    }, 2600);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [shareStatus]);
 
   const sourceChars = useMemo(() => {
     if (session) {
@@ -65,6 +89,7 @@ export default function App() {
       return;
     }
 
+    prepareSpeechSynthesis();
     const chars = items.map((item) => item.char);
     saveRecentList(chars, editingRecentKey ?? undefined);
     setRecentLists(readStoredData().recentLists);
@@ -193,6 +218,80 @@ export default function App() {
     await navigator.clipboard?.writeText(text);
   }
 
+  async function copyText(text: string): Promise<boolean> {
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        // Some Android WebViews expose the API but reject outside HTTPS.
+      }
+    }
+
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "true");
+    textarea.style.position = "fixed";
+    textarea.style.top = "-1000px";
+    textarea.style.opacity = "0";
+    document.body.append(textarea);
+    textarea.select();
+
+    try {
+      return document.execCommand("copy");
+    } catch {
+      return false;
+    } finally {
+      textarea.remove();
+    }
+  }
+
+  function isShareAbort(error: unknown): boolean {
+    return error instanceof DOMException && error.name === "AbortError";
+  }
+
+  async function shareCharacters(chars: string[]) {
+    if (chars.length === 0) {
+      return;
+    }
+
+    const text = joinCharacters(chars);
+    const url = createSharedCharactersUrl(chars, window.location.href);
+    const shareData = {
+      title: "识字小练习",
+      text: `本次字表：${text}`,
+      url,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        setShareStatus("已打开分享");
+        return;
+      } catch (error) {
+        if (isShareAbort(error)) {
+          return;
+        }
+      }
+    }
+
+    const copied = await copyText(url);
+
+    if (!copied) {
+      window.history.replaceState(null, "", url);
+    }
+
+    setShareStatus(copied ? "链接已复制" : "地址栏已生成分享链接");
+  }
+
+  function shareCurrentCharacters() {
+    void shareCharacters(getCharacterPreview(inputText));
+  }
+
+  function shareRecent(chars: string[]) {
+    void shareCharacters(chars);
+  }
+
   function speakCurrent() {
     const current = session?.queue[session.currentIndex];
     speakCharacter(current?.char ?? "");
@@ -205,11 +304,14 @@ export default function App() {
           inputText={inputText}
           recentLists={recentLists}
           settings={settings}
+          shareStatus={shareStatus}
           onInputChange={setInputText}
           editingRecentKey={editingRecentKey}
           onDeleteRecent={removeRecent}
           onEditRecent={editRecent}
           onSettingsChange={updateSettings}
+          onShare={shareCurrentCharacters}
+          onShareRecent={shareRecent}
           onStart={startPractice}
           onUseRecent={useRecent}
         />
