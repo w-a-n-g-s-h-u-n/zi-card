@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import copyToClipboard from "copy-to-clipboard";
+import copyTextToClipboard from "copy-text-to-clipboard";
 import { createCharacterItems, getCharacterPreview } from "./core/characters";
 import { getReviewItems } from "./core/review";
 import { getSessionStats } from "./core/scoring";
@@ -31,10 +31,6 @@ import { prepareSpeechSynthesis, speakCharacter } from "./speech/speechSynthesis
 import { joinCharacters } from "./utils/text";
 
 type PageState = "setup" | "practice" | "result";
-type SharePanel = {
-  url: string;
-  help: string;
-};
 
 export default function App() {
   const [page, setPage] = useState<PageState>("setup");
@@ -43,7 +39,6 @@ export default function App() {
   const [recentLists, setRecentLists] = useState<string[][]>([]);
   const [editingRecentKey, setEditingRecentKey] = useState<string | null>(null);
   const [shareStatus, setShareStatus] = useState<string | null>(null);
-  const [sharePanel, setSharePanel] = useState<SharePanel | null>(null);
   const [session, setSession] = useState<PracticeSession | null>(null);
 
   useEffect(() => {
@@ -224,30 +219,6 @@ export default function App() {
     await navigator.clipboard?.writeText(text);
   }
 
-  function copySelectedTextField(text: string): boolean {
-    const field = document.getElementById("share-link-field");
-
-    if (!field || !("select" in field)) {
-      return false;
-    }
-
-    const textField = field as HTMLTextAreaElement | HTMLInputElement;
-
-    if (textField.value !== text) {
-      return false;
-    }
-
-    textField.focus();
-    textField.select();
-    textField.setSelectionRange(0, text.length);
-
-    try {
-      return document.execCommand("copy");
-    } catch {
-      return false;
-    }
-  }
-
   function copyWithCopyEvent(text: string): boolean {
     let copied = false;
 
@@ -269,16 +240,13 @@ export default function App() {
     }
   }
 
-  async function copyText(text: string): Promise<boolean> {
-    if (copySelectedTextField(text) || copyWithCopyEvent(text)) {
+  function copyText(text: string): boolean {
+    if (copyWithCopyEvent(text)) {
       return true;
     }
 
     try {
-      return await copyToClipboard(text, {
-        fallbackToPrompt: false,
-        format: "text/plain",
-      });
+      return copyTextToClipboard(text);
     } catch {
       return false;
     }
@@ -292,36 +260,8 @@ export default function App() {
     return getBrowserUserAgent().includes("micromessenger");
   }
 
-  function getShareHelp(copied: boolean) {
-    if (isWechatBrowser()) {
-      return copied ? "链接已复制，也可用右上角分享" : "点右上角分享，或长按下方链接";
-    }
-
-    return copied ? "链接已复制，也可长按下方链接" : "长按下方链接复制";
-  }
-
-  function openSharePanel(url: string, copied: boolean) {
-    setSharePanel({
-      url,
-      help: getShareHelp(copied),
-    });
+  function setShareUrl(url: string) {
     window.history.replaceState(null, "", url);
-  }
-
-  function canUseNativeShare(shareData: ShareData) {
-    if (!navigator.share || isWechatBrowser()) {
-      return false;
-    }
-
-    if (!navigator.canShare) {
-      return true;
-    }
-
-    try {
-      return navigator.canShare(shareData);
-    } catch {
-      return false;
-    }
   }
 
   async function shareCharacters(chars: string[]) {
@@ -336,25 +276,33 @@ export default function App() {
       text: `本次字表：${text}`,
       url,
     };
-    const shouldUseNativeShare = canUseNativeShare(shareData);
 
-    if (shouldUseNativeShare) {
+    setShareUrl(url);
+
+    if (isWechatBrowser()) {
+      const copied = copyText(url);
+      setShareStatus(copied ? "链接已复制，请点右上角分享" : "请点右上角分享");
+      return;
+    }
+
+    if (navigator.share) {
+      let copied = false;
+
       try {
-        await navigator.share(shareData);
+        const sharePromise = navigator.share(shareData);
+        copied = copyText(url);
+        await sharePromise;
         setShareStatus("已打开分享");
-        setSharePanel(null);
         return;
       } catch {
-        // After a failed native share, many browsers have consumed the tap gesture, so copy on next tap.
-        openSharePanel(url, false);
-        setShareStatus("分享未成功，请点复制或长按链接");
+        copied ||= copyText(url);
+        setShareStatus(copied ? "分享未成功，链接已复制" : "分享未成功，请从地址栏复制");
         return;
       }
     }
 
-    const copied = await copyText(url);
-    openSharePanel(url, copied);
-    setShareStatus(copied ? getShareHelp(true) : "请长按链接复制");
+    const copied = copyText(url);
+    setShareStatus(copied ? "链接已复制" : "请从地址栏复制");
   }
 
   function shareCurrentCharacters() {
@@ -363,24 +311,6 @@ export default function App() {
 
   function shareRecent(chars: string[]) {
     void shareCharacters(chars);
-  }
-
-  async function copySharePanelLink() {
-    if (!sharePanel) {
-      return;
-    }
-
-    const copied = await copyText(sharePanel.url);
-    setSharePanel({
-      ...sharePanel,
-      help: getShareHelp(copied),
-    });
-    setShareStatus(copied ? "链接已复制" : "请长按链接复制");
-  }
-
-  function closeSharePanel() {
-    setSharePanel(null);
-    setShareStatus(null);
   }
 
   function speakCurrent() {
@@ -395,13 +325,9 @@ export default function App() {
           inputText={inputText}
           recentLists={recentLists}
           settings={settings}
-          shareHelp={sharePanel?.help ?? null}
           shareStatus={shareStatus}
-          shareUrl={sharePanel?.url ?? null}
           onInputChange={setInputText}
           editingRecentKey={editingRecentKey}
-          onCloseSharePanel={closeSharePanel}
-          onCopyShareLink={copySharePanelLink}
           onDeleteRecent={removeRecent}
           onEditRecent={editRecent}
           onSettingsChange={updateSettings}
