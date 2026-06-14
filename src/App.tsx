@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import copyToClipboard from "copy-to-clipboard";
 import { createCharacterItems, getCharacterPreview } from "./core/characters";
 import { getReviewItems } from "./core/review";
 import { getSessionStats } from "./core/scoring";
@@ -223,37 +224,63 @@ export default function App() {
     await navigator.clipboard?.writeText(text);
   }
 
-  async function copyText(text: string): Promise<boolean> {
-    if (navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(text);
-        return true;
-      } catch {
-        // Some Android WebViews expose the API but reject outside HTTPS.
-      }
+  function copySelectedTextField(text: string): boolean {
+    const field = document.getElementById("share-link-field");
+
+    if (!field || !("select" in field)) {
+      return false;
     }
 
-    const textarea = document.createElement("textarea");
-    textarea.value = text;
-    textarea.setAttribute("readonly", "true");
-    textarea.style.position = "fixed";
-    textarea.style.top = "0";
-    textarea.style.left = "0";
-    textarea.style.width = "1px";
-    textarea.style.height = "1px";
-    textarea.style.fontSize = "16px";
-    textarea.style.opacity = "0.01";
-    document.body.append(textarea);
-    textarea.focus();
-    textarea.select();
-    textarea.setSelectionRange(0, text.length);
+    const textField = field as HTMLTextAreaElement | HTMLInputElement;
+
+    if (textField.value !== text) {
+      return false;
+    }
+
+    textField.focus();
+    textField.select();
+    textField.setSelectionRange(0, text.length);
 
     try {
       return document.execCommand("copy");
     } catch {
       return false;
+    }
+  }
+
+  function copyWithCopyEvent(text: string): boolean {
+    let copied = false;
+
+    const handleCopy = (event: ClipboardEvent) => {
+      event.clipboardData?.setData("text/plain", text);
+      event.preventDefault();
+      copied = true;
+    };
+
+    document.addEventListener("copy", handleCopy, { once: true });
+
+    try {
+      const commandCopied = document.execCommand("copy");
+      return copied || commandCopied;
+    } catch {
+      return false;
     } finally {
-      textarea.remove();
+      document.removeEventListener("copy", handleCopy);
+    }
+  }
+
+  async function copyText(text: string): Promise<boolean> {
+    if (copySelectedTextField(text) || copyWithCopyEvent(text)) {
+      return true;
+    }
+
+    try {
+      return await copyToClipboard(text, {
+        fallbackToPrompt: false,
+        format: "text/plain",
+      });
+    } catch {
+      return false;
     }
   }
 
@@ -281,6 +308,22 @@ export default function App() {
     window.history.replaceState(null, "", url);
   }
 
+  function canUseNativeShare(shareData: ShareData) {
+    if (!navigator.share || isWechatBrowser()) {
+      return false;
+    }
+
+    if (!navigator.canShare) {
+      return true;
+    }
+
+    try {
+      return navigator.canShare(shareData);
+    } catch {
+      return false;
+    }
+  }
+
   async function shareCharacters(chars: string[]) {
     if (chars.length === 0) {
       return;
@@ -293,7 +336,7 @@ export default function App() {
       text: `本次字表：${text}`,
       url,
     };
-    const shouldUseNativeShare = Boolean(navigator.share) && !isWechatBrowser();
+    const shouldUseNativeShare = canUseNativeShare(shareData);
 
     if (shouldUseNativeShare) {
       try {
@@ -302,7 +345,10 @@ export default function App() {
         setSharePanel(null);
         return;
       } catch {
-        // Native sharing is not reliable in every Android browser. Fall through to link fallback.
+        // After a failed native share, many browsers have consumed the tap gesture, so copy on next tap.
+        openSharePanel(url, false);
+        setShareStatus("分享未成功，请点复制或长按链接");
+        return;
       }
     }
 
