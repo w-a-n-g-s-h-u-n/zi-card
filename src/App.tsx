@@ -1,9 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import copyTextToClipboard from "copy-text-to-clipboard";
-import { createCharacterItems, getCharacterPreview } from "./core/characters";
+import {
+  createCharacterItemsFromDrafts,
+  createCharacterPreviewItems,
+  getCharacterPreview,
+  getSelectedPinyinMap,
+} from "./core/characters";
 import { getReviewItems } from "./core/review";
 import { getSessionStats } from "./core/scoring";
-import { createSharedCharactersUrl, getSharedCharactersFromUrl } from "./core/share";
+import { createSharedCharactersUrl, getSharedCharacterDraftsFromUrl } from "./core/share";
 import {
   createPracticeSession,
   createReviewSession,
@@ -25,6 +30,7 @@ import {
   saveSettings,
 } from "./storage/localStorage";
 import type { StoredSettings } from "./storage/storageTypes";
+import type { CharacterDraft } from "./types/character";
 import type { PracticeSession } from "./types/session";
 import { playTone } from "./speech/soundEffects";
 import { prepareSpeechSynthesis, speakCharacter } from "./speech/speechSynthesis";
@@ -35,18 +41,20 @@ type PageState = "setup" | "practice" | "result";
 export default function App() {
   const [page, setPage] = useState<PageState>("setup");
   const [inputText, setInputText] = useState("");
+  const [selectedPinyins, setSelectedPinyins] = useState<Record<string, string>>({});
   const [settings, setSettings] = useState<StoredSettings>(DEFAULT_SETTINGS);
-  const [recentLists, setRecentLists] = useState<string[][]>([]);
+  const [recentLists, setRecentLists] = useState<CharacterDraft[][]>([]);
   const [editingRecentKey, setEditingRecentKey] = useState<string | null>(null);
   const [shareStatus, setShareStatus] = useState<string | null>(null);
   const [session, setSession] = useState<PracticeSession | null>(null);
 
   useEffect(() => {
     const stored = readStoredData();
-    const sharedChars = getSharedCharactersFromUrl(window.location.href);
+    const sharedDrafts = getSharedCharacterDraftsFromUrl(window.location.href);
 
-    if (sharedChars.length > 0) {
-      setInputText(joinCharacters(sharedChars));
+    if (sharedDrafts.length > 0) {
+      setInputText(joinCharacters(sharedDrafts.map((draft) => draft.char)));
+      setSelectedPinyins(getSelectedPinyinMap(sharedDrafts));
       setShareStatus("已载入分享字表");
     }
 
@@ -69,12 +77,26 @@ export default function App() {
     };
   }, [shareStatus]);
 
+  const previewItems = useMemo(
+    () => createCharacterPreviewItems(inputText, selectedPinyins),
+    [inputText, selectedPinyins],
+  );
+
+  const previewDrafts = useMemo(
+    () =>
+      previewItems.map<CharacterDraft>((item) => ({
+        char: item.char,
+        pinyin: item.selectedPinyin,
+      })),
+    [previewItems],
+  );
+
   const sourceChars = useMemo(() => {
     if (session) {
       return session.items.map((item) => item.char);
     }
-    return getCharacterPreview(inputText);
-  }, [inputText, session]);
+    return previewDrafts.map((draft) => draft.char);
+  }, [previewDrafts, session]);
 
   const stats = useMemo(() => (session ? getSessionStats(session) : null), [session]);
 
@@ -83,8 +105,23 @@ export default function App() {
     saveSettings(nextSettings);
   }
 
+  function updateInputText(value: string) {
+    const nextChars = new Set(getCharacterPreview(value));
+    setInputText(value);
+    setSelectedPinyins((current) =>
+      Object.fromEntries(Object.entries(current).filter(([char]) => nextChars.has(char))),
+    );
+  }
+
+  function updateSelectedPinyin(char: string, pinyin: string) {
+    setSelectedPinyins((current) => ({
+      ...current,
+      [char]: pinyin,
+    }));
+  }
+
   function startPractice() {
-    const items = createCharacterItems(inputText);
+    const items = createCharacterItemsFromDrafts(previewDrafts);
 
     if (items.length === 0) {
       return;
@@ -92,7 +129,7 @@ export default function App() {
 
     prepareSpeechSynthesis();
     const chars = items.map((item) => item.char);
-    saveRecentList(chars, editingRecentKey ?? undefined);
+    saveRecentList(previewDrafts, editingRecentKey ?? undefined);
     setRecentLists(readStoredData().recentLists);
     setEditingRecentKey(null);
     setSession(
@@ -106,18 +143,20 @@ export default function App() {
     setPage("practice");
   }
 
-  function useRecent(chars: string[]) {
-    setInputText(joinCharacters(chars));
+  function useRecent(drafts: CharacterDraft[]) {
+    setInputText(joinCharacters(drafts.map((draft) => draft.char)));
+    setSelectedPinyins(getSelectedPinyinMap(drafts));
     setEditingRecentKey(null);
   }
 
-  function editRecent(chars: string[]) {
-    setInputText(joinCharacters(chars));
-    setEditingRecentKey(getRecentListKey(chars));
+  function editRecent(drafts: CharacterDraft[]) {
+    setInputText(joinCharacters(drafts.map((draft) => draft.char)));
+    setSelectedPinyins(getSelectedPinyinMap(drafts));
+    setEditingRecentKey(getRecentListKey(drafts));
   }
 
-  function removeRecent(chars: string[]) {
-    const key = getRecentListKey(chars);
+  function removeRecent(drafts: CharacterDraft[]) {
+    const key = getRecentListKey(drafts);
     deleteRecentList(key);
     setRecentLists(readStoredData().recentLists);
 
@@ -264,13 +303,13 @@ export default function App() {
     window.history.replaceState(null, "", url);
   }
 
-  async function shareCharacters(chars: string[]) {
-    if (chars.length === 0) {
+  async function shareCharacters(drafts: CharacterDraft[]) {
+    if (drafts.length === 0) {
       return;
     }
 
-    const text = joinCharacters(chars);
-    const url = createSharedCharactersUrl(chars, window.location.href);
+    const text = joinCharacters(drafts.map((draft) => draft.char));
+    const url = createSharedCharactersUrl(drafts, window.location.href);
     const shareData = {
       title: "识字小练习",
       text: `本次字表：${text}`,
@@ -306,16 +345,16 @@ export default function App() {
   }
 
   function shareCurrentCharacters() {
-    void shareCharacters(getCharacterPreview(inputText));
+    void shareCharacters(previewDrafts);
   }
 
-  function shareRecent(chars: string[]) {
-    void shareCharacters(chars);
+  function shareRecent(drafts: CharacterDraft[]) {
+    void shareCharacters(drafts);
   }
 
   function speakCurrent() {
     const current = session?.queue[session.currentIndex];
-    speakCharacter(current?.char ?? "");
+    speakCharacter(current?.char ?? "", { pinyin: current?.pinyin });
   }
 
   return (
@@ -325,11 +364,13 @@ export default function App() {
           inputText={inputText}
           recentLists={recentLists}
           settings={settings}
+          previewItems={previewItems}
           shareStatus={shareStatus}
-          onInputChange={setInputText}
+          onInputChange={updateInputText}
           editingRecentKey={editingRecentKey}
           onDeleteRecent={removeRecent}
           onEditRecent={editRecent}
+          onPinyinChange={updateSelectedPinyin}
           onSettingsChange={updateSettings}
           onShare={shareCurrentCharacters}
           onShareRecent={shareRecent}

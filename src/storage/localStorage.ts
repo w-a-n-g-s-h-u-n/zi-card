@@ -1,6 +1,7 @@
+import type { CharacterDraft } from "../types/character";
 import type { StoredData, StoredSettings } from "./storageTypes";
 
-const STORAGE_KEY = "character-practice:v1";
+const STORAGE_KEY = "character-practice:v2";
 
 export const DEFAULT_SETTINGS: StoredSettings = {
   randomOrder: false,
@@ -10,7 +11,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
 };
 
 const DEFAULT_DATA: StoredData = {
-  version: 1,
+  version: 2,
   recentLists: [],
   settings: DEFAULT_SETTINGS,
 };
@@ -25,12 +26,12 @@ export function readStoredData(): StoredData {
 
     const parsed = JSON.parse(raw) as Partial<StoredData>;
 
-    if (parsed.version !== 1) {
+    if (parsed.version !== 2) {
       return DEFAULT_DATA;
     }
 
     return {
-      version: 1,
+      version: 2,
       recentLists: Array.isArray(parsed.recentLists) ? parsed.recentLists.slice(0, 6) : [],
       settings: {
         ...DEFAULT_SETTINGS,
@@ -54,11 +55,11 @@ export function saveSettings(settings: StoredSettings): void {
   });
 }
 
-export function saveRecentList(chars: string[], replaceKey?: string): void {
+export function saveRecentList(drafts: CharacterDraft[], replaceKey?: string): void {
   const current = readStoredData();
-  const key = getRecentListKey(chars);
+  const key = getRecentListKey(drafts);
   const recentLists = [
-    chars,
+    drafts,
     ...current.recentLists.filter((item) => {
       const itemKey = getRecentListKey(item);
       return itemKey !== key && itemKey !== replaceKey;
@@ -80,6 +81,6 @@ export function deleteRecentList(key: string): void {
   });
 }
 
-export function getRecentListKey(chars: string[]): string {
-  return chars.join("");
+export function getRecentListKey(drafts: CharacterDraft[]): string {
+  return drafts.map((draft) => `${draft.char}:${draft.pinyin ?? ""}`).join("|");
 }

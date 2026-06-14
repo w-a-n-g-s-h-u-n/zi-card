@@ -5,6 +5,11 @@ let speakTimer: number | null = null;
 let speechFallbackTimer: number | null = null;
 
 const SPEECH_START_TIMEOUT_MS = 900;
+const YOUDAO_TTS_ENDPOINT = "https://dict.youdao.com/dictvoice";
+
+type SpeakOptions = {
+  pinyin?: string;
+};
 
 function getSpeechSynthesis(): SpeechSynthesis | null {
   if (
@@ -26,28 +31,16 @@ function getVoices(synth: SpeechSynthesis): SpeechSynthesisVoice[] {
   }
 }
 
-function getUserAgent(): string {
-  return window.navigator?.userAgent?.toLowerCase() ?? "";
-}
+function getYoudaoAudioUrl(text: string): string {
+  const url = new URL(YOUDAO_TTS_ENDPOINT);
+  url.searchParams.set("audio", text);
+  url.searchParams.set("le", "zh");
 
-function shouldPreferRemoteAudio(): boolean {
-  const userAgent = getUserAgent();
-
-  return (
-    userAgent.includes("android") ||
-    userAgent.includes("micromessenger") ||
-    userAgent.includes("miuibrowser") ||
-    userAgent.includes("xiaomi")
-  );
+  return url.toString();
 }
 
 function getRemoteAudioUrls(char: string): string[] {
-  const text = encodeURIComponent(char);
-
-  return [
-    `https://dict.youdao.com/dictvoice?audio=${text}&le=zh`,
-    `https://fanyi.baidu.com/gettts?lan=zh&text=${text}&spd=3&source=web`,
-  ];
+  return [getYoudaoAudioUrl(char)];
 }
 
 function clearSpeechTimers(): void {
@@ -148,7 +141,7 @@ function createCharacterUtterance(char: string, synth: SpeechSynthesis): SpeechS
   return utterance;
 }
 
-async function playRemoteAudio(char: string): Promise<boolean> {
+async function playRemoteAudio(char: string, options: SpeakOptions = {}): Promise<boolean> {
   if (typeof window.Audio !== "function") {
     return false;
   }
@@ -232,8 +225,8 @@ function playSpeechWithStartCheck(char: string, synth: SpeechSynthesis): Promise
   });
 }
 
-async function speakWithRemoteAudioFirst(char: string): Promise<void> {
-  const played = await playRemoteAudio(char);
+async function speakWithRemoteAudioFirst(char: string, options: SpeakOptions = {}): Promise<void> {
+  const played = await playRemoteAudio(char, options);
 
   if (played) {
     return;
@@ -247,15 +240,6 @@ async function speakWithRemoteAudioFirst(char: string): Promise<void> {
 
   await waitForVoices(synth);
   await playSpeechWithStartCheck(char, synth);
-}
-
-async function speakWithWebSpeechFirst(char: string, synth: SpeechSynthesis): Promise<void> {
-  await waitForVoices(synth);
-  const started = await playSpeechWithStartCheck(char, synth);
-
-  if (!started) {
-    await playRemoteAudio(char);
-  }
 }
 
 export function prepareSpeechSynthesis(): void {
@@ -272,8 +256,7 @@ export function prepareSpeechSynthesis(): void {
   void waitForVoices(synth);
 }
 
-export function speakCharacter(char: string): boolean {
-  const synth = getSpeechSynthesis();
+export function speakCharacter(char: string, options: SpeakOptions = {}): boolean {
   const text = char.trim();
 
   if (!text) {
@@ -282,14 +265,10 @@ export function speakCharacter(char: string): boolean {
 
   stopActivePlayback();
 
-  if (shouldPreferRemoteAudio() || !synth) {
-    void speakWithRemoteAudioFirst(text);
-    return true;
-  }
-
   speakTimer = window.setTimeout(() => {
     speakTimer = null;
-    void speakWithWebSpeechFirst(text, synth);
+    void speakWithRemoteAudioFirst(text, options);
   }, 80);
+
   return true;
 }

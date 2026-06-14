@@ -11,8 +11,8 @@ import {
   Volume2,
 } from "lucide-react";
 import type { ChangeEvent } from "react";
-import { getCharacterPreview } from "../core/characters";
 import { MODE_CONFIGS, MODE_ICONS } from "../modes";
+import type { CharacterDraft, CharacterPreviewItem } from "../types/character";
 import type { PracticeMode } from "../types/mode";
 import { Button } from "../ui/Button";
 import { SegmentedControl } from "../ui/SegmentedControl";
@@ -24,13 +24,15 @@ import { getRecentListKey } from "../storage/localStorage";
 type SetupPageProps = {
   inputText: string;
   settings: StoredSettings;
-  recentLists: string[][];
+  recentLists: CharacterDraft[][];
+  previewItems: CharacterPreviewItem[];
   onInputChange: (value: string) => void;
+  onPinyinChange: (char: string, pinyin: string) => void;
   onSettingsChange: (settings: StoredSettings) => void;
-  onUseRecent: (chars: string[]) => void;
-  onEditRecent: (chars: string[]) => void;
-  onDeleteRecent: (chars: string[]) => void;
-  onShareRecent: (chars: string[]) => void;
+  onUseRecent: (drafts: CharacterDraft[]) => void;
+  onEditRecent: (drafts: CharacterDraft[]) => void;
+  onDeleteRecent: (drafts: CharacterDraft[]) => void;
+  onShareRecent: (drafts: CharacterDraft[]) => void;
   editingRecentKey: string | null;
   shareStatus: string | null;
   onShare: () => void;
@@ -41,7 +43,9 @@ export function SetupPage({
   inputText,
   settings,
   recentLists,
+  previewItems,
   onInputChange,
+  onPinyinChange,
   onSettingsChange,
   onUseRecent,
   onEditRecent,
@@ -52,8 +56,7 @@ export function SetupPage({
   onShare,
   onStart,
 }: SetupPageProps) {
-  const preview = getCharacterPreview(inputText);
-  const canStart = preview.length > 0;
+  const canStart = previewItems.length > 0;
 
   function updateSettings(patch: Partial<StoredSettings>) {
     onSettingsChange({
@@ -70,7 +73,7 @@ export function SetupPage({
         </div>
         <div>
           <h1>识字小练习</h1>
-          <p>{preview.length > 0 ? `${preview.length} 个字` : "录入本次字表"}</p>
+          <p>{previewItems.length > 0 ? `${previewItems.length} 个字` : "录入本次字表"}</p>
         </div>
       </section>
 
@@ -89,14 +92,36 @@ export function SetupPage({
           />
 
           <div className="preview-row" aria-label="字表预览">
-            {preview.length === 0 ? (
+            {previewItems.length === 0 ? (
               <span className="empty-preview">等待录入</span>
             ) : (
-              preview.map((char) => (
-                <span className="character-chip" key={char}>
-                  {char}
-                </span>
-              ))
+              previewItems.map((item) => {
+                const isPolyphonic = item.pinyinOptions.length > 1;
+
+                return (
+                  <div className="character-chip" data-polyphonic={isPolyphonic} key={item.char}>
+                    <div className="character-chip-main">
+                      <span className="character-chip-pinyin">{item.selectedPinyin}</span>
+                      <span className="character-chip-char">{item.char}</span>
+                    </div>
+                    {isPolyphonic ? (
+                      <div className="pinyin-choice-row" aria-label={`${item.char} 的读音`}>
+                        {item.pinyinOptions.map((pinyin) => (
+                          <button
+                            className="pinyin-choice"
+                            data-selected={item.selectedPinyin === pinyin}
+                            key={pinyin}
+                            type="button"
+                            onClick={() => onPinyinChange(item.char, pinyin)}
+                          >
+                            {pinyin}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })
             )}
           </div>
 
@@ -158,9 +183,10 @@ export function SetupPage({
               </div>
             ) : (
               <div className="recent-list">
-                {recentLists.map((chars) => {
-                  const key = getRecentListKey(chars);
-                  const text = joinCharacters(chars);
+                {recentLists.map((drafts) => {
+                  const key = getRecentListKey(drafts);
+                  const text = joinCharacters(drafts.map((draft) => draft.char));
+                  const pinyinText = drafts.map((draft) => draft.pinyin).filter(Boolean).join(" ");
 
                   return (
                     <div className="recent-item" data-editing={editingRecentKey === key} key={key}>
@@ -168,10 +194,13 @@ export function SetupPage({
                         className="recent-main-action"
                         title="使用"
                         type="button"
-                        onClick={() => onUseRecent(chars)}
+                        onClick={() => onUseRecent(drafts)}
                       >
                         <CheckCircle2 aria-hidden="true" size={18} />
-                        <span>{text}</span>
+                        <span className="recent-main-text">
+                          <span>{text}</span>
+                          {pinyinText ? <span className="recent-pinyin-text">{pinyinText}</span> : null}
+                        </span>
                       </button>
                       <div className="recent-row-actions">
                         <button
@@ -179,7 +208,7 @@ export function SetupPage({
                           className="recent-icon-action"
                           title="编辑"
                           type="button"
-                          onClick={() => onEditRecent(chars)}
+                          onClick={() => onEditRecent(drafts)}
                         >
                           <Pencil aria-hidden="true" size={18} />
                         </button>
@@ -188,7 +217,7 @@ export function SetupPage({
                           className="recent-icon-action"
                           title="分享"
                           type="button"
-                          onClick={() => onShareRecent(chars)}
+                          onClick={() => onShareRecent(drafts)}
                         >
                           <Share2 aria-hidden="true" size={18} />
                         </button>
@@ -197,7 +226,7 @@ export function SetupPage({
                           className="recent-icon-action recent-icon-action--danger"
                           title="删除"
                           type="button"
-                          onClick={() => onDeleteRecent(chars)}
+                          onClick={() => onDeleteRecent(drafts)}
                         >
                           <Trash2 aria-hidden="true" size={18} />
                         </button>

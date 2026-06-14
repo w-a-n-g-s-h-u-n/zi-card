@@ -1,4 +1,5 @@
 import type { PracticeMode } from "../types/mode";
+import type { CharacterDraft } from "../types/character";
 
 export type StoredSettings = {
   randomOrder: boolean;
@@ -8,7 +9,7 @@ export type StoredSettings = {
 };
 
 export type StoredData = {
-  version: 1;
-  recentLists: string[][];
+  version: 2;
+  recentLists: CharacterDraft[][];
   settings: StoredSettings;
 };
