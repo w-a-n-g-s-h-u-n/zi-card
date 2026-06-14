@@ -30,6 +30,10 @@ import { prepareSpeechSynthesis, speakCharacter } from "./speech/speechSynthesis
 import { joinCharacters } from "./utils/text";
 
 type PageState = "setup" | "practice" | "result";
+type SharePanel = {
+  url: string;
+  help: string;
+};
 
 export default function App() {
   const [page, setPage] = useState<PageState>("setup");
@@ -38,6 +42,7 @@ export default function App() {
   const [recentLists, setRecentLists] = useState<string[][]>([]);
   const [editingRecentKey, setEditingRecentKey] = useState<string | null>(null);
   const [shareStatus, setShareStatus] = useState<string | null>(null);
+  const [sharePanel, setSharePanel] = useState<SharePanel | null>(null);
   const [session, setSession] = useState<PracticeSession | null>(null);
 
   useEffect(() => {
@@ -232,10 +237,16 @@ export default function App() {
     textarea.value = text;
     textarea.setAttribute("readonly", "true");
     textarea.style.position = "fixed";
-    textarea.style.top = "-1000px";
-    textarea.style.opacity = "0";
+    textarea.style.top = "0";
+    textarea.style.left = "0";
+    textarea.style.width = "1px";
+    textarea.style.height = "1px";
+    textarea.style.fontSize = "16px";
+    textarea.style.opacity = "0.01";
     document.body.append(textarea);
+    textarea.focus();
     textarea.select();
+    textarea.setSelectionRange(0, text.length);
 
     try {
       return document.execCommand("copy");
@@ -246,8 +257,28 @@ export default function App() {
     }
   }
 
-  function isShareAbort(error: unknown): boolean {
-    return error instanceof DOMException && error.name === "AbortError";
+  function getBrowserUserAgent() {
+    return window.navigator.userAgent.toLowerCase();
+  }
+
+  function isWechatBrowser() {
+    return getBrowserUserAgent().includes("micromessenger");
+  }
+
+  function getShareHelp(copied: boolean) {
+    if (isWechatBrowser()) {
+      return copied ? "链接已复制，也可用右上角分享" : "点右上角分享，或长按下方链接";
+    }
+
+    return copied ? "链接已复制，也可长按下方链接" : "长按下方链接复制";
+  }
+
+  function openSharePanel(url: string, copied: boolean) {
+    setSharePanel({
+      url,
+      help: getShareHelp(copied),
+    });
+    window.history.replaceState(null, "", url);
   }
 
   async function shareCharacters(chars: string[]) {
@@ -262,26 +293,22 @@ export default function App() {
       text: `本次字表：${text}`,
       url,
     };
+    const shouldUseNativeShare = Boolean(navigator.share) && !isWechatBrowser();
 
-    if (navigator.share) {
+    if (shouldUseNativeShare) {
       try {
         await navigator.share(shareData);
         setShareStatus("已打开分享");
+        setSharePanel(null);
         return;
-      } catch (error) {
-        if (isShareAbort(error)) {
-          return;
-        }
+      } catch {
+        // Native sharing is not reliable in every Android browser. Fall through to link fallback.
       }
     }
 
     const copied = await copyText(url);
-
-    if (!copied) {
-      window.history.replaceState(null, "", url);
-    }
-
-    setShareStatus(copied ? "链接已复制" : "地址栏已生成分享链接");
+    openSharePanel(url, copied);
+    setShareStatus(copied ? getShareHelp(true) : "请长按链接复制");
   }
 
   function shareCurrentCharacters() {
@@ -290,6 +317,24 @@ export default function App() {
 
   function shareRecent(chars: string[]) {
     void shareCharacters(chars);
+  }
+
+  async function copySharePanelLink() {
+    if (!sharePanel) {
+      return;
+    }
+
+    const copied = await copyText(sharePanel.url);
+    setSharePanel({
+      ...sharePanel,
+      help: getShareHelp(copied),
+    });
+    setShareStatus(copied ? "链接已复制" : "请长按链接复制");
+  }
+
+  function closeSharePanel() {
+    setSharePanel(null);
+    setShareStatus(null);
   }
 
   function speakCurrent() {
@@ -304,9 +349,13 @@ export default function App() {
           inputText={inputText}
           recentLists={recentLists}
           settings={settings}
+          shareHelp={sharePanel?.help ?? null}
           shareStatus={shareStatus}
+          shareUrl={sharePanel?.url ?? null}
           onInputChange={setInputText}
           editingRecentKey={editingRecentKey}
+          onCloseSharePanel={closeSharePanel}
+          onCopyShareLink={copySharePanelLink}
           onDeleteRecent={removeRecent}
           onEditRecent={editRecent}
           onSettingsChange={updateSettings}

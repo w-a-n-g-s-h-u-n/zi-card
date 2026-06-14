@@ -1,6 +1,8 @@
 import {
   BookOpenText,
+  ChevronUp,
   CheckCircle2,
+  Copy,
   Dice5,
   Eye,
   ListRestart,
@@ -32,7 +34,11 @@ type SetupPageProps = {
   onDeleteRecent: (chars: string[]) => void;
   onShareRecent: (chars: string[]) => void;
   editingRecentKey: string | null;
+  shareHelp: string | null;
   shareStatus: string | null;
+  shareUrl: string | null;
+  onCloseSharePanel: () => void;
+  onCopyShareLink: () => void;
   onShare: () => void;
   onStart: () => void;
 };
@@ -48,7 +54,11 @@ export function SetupPage({
   onDeleteRecent,
   onShareRecent,
   editingRecentKey,
+  shareHelp,
   shareStatus,
+  shareUrl,
+  onCloseSharePanel,
+  onCopyShareLink,
   onShare,
   onStart,
 }: SetupPageProps) {
@@ -111,6 +121,31 @@ export function SetupPage({
           <div className="share-status" aria-live="polite">
             {shareStatus ?? ""}
           </div>
+          {shareUrl ? (
+            <div className="share-panel">
+              <div className="share-panel-heading">
+                <Share2 aria-hidden="true" size={18} />
+                <span>分享链接</span>
+              </div>
+              <textarea
+                aria-label="分享链接"
+                className="share-link-field"
+                readOnly
+                value={shareUrl}
+                onFocus={(event) => event.currentTarget.select()}
+                onClick={(event) => event.currentTarget.select()}
+              />
+              {shareHelp ? <div className="share-help">{shareHelp}</div> : null}
+              <div className="share-panel-actions">
+                <Button icon={Copy} variant="quiet" onClick={onCopyShareLink}>
+                  复制
+                </Button>
+                <Button icon={ChevronUp} variant="quiet" onClick={onCloseSharePanel}>
+                  收起
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <aside className="settings-panel">
