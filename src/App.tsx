@@ -327,7 +327,7 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" data-character-font={settings.characterFont}>
       {page === "setup" ? (
         <SetupPage
           inputText={inputText}

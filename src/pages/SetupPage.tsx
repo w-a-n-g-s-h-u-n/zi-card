@@ -1,5 +1,6 @@
 import {
   BookOpenText,
+  Brush,
   CheckCircle2,
   Dice5,
   Eye,
@@ -7,10 +8,12 @@ import {
   Pencil,
   Play,
   Share2,
+  Type,
   Trash2,
   Volume2,
 } from "lucide-react";
 import type { ChangeEvent } from "react";
+import type { LucideIcon } from "lucide-react";
 import { MODE_CONFIGS, MODE_ICONS } from "../modes";
 import type { CharacterDraft, CharacterPreviewItem } from "../types/character";
 import type { PracticeMode } from "../types/mode";
@@ -18,8 +21,14 @@ import { Button } from "../ui/Button";
 import { SegmentedControl } from "../ui/SegmentedControl";
 import { Toggle } from "../ui/Toggle";
 import { joinCharacters } from "../utils/text";
-import type { StoredSettings } from "../storage/storageTypes";
+import type { CharacterFont, StoredSettings } from "../storage/storageTypes";
 import { getRecentListKey } from "../storage/localStorage";
+
+const CHARACTER_FONT_OPTIONS: Array<{ value: CharacterFont; label: string; icon: LucideIcon }> = [
+  { value: "sans", label: "标准", icon: Type },
+  { value: "kai", label: "楷体", icon: BookOpenText },
+  { value: "handwriting", label: "手写", icon: Brush },
+];
 
 type SetupPageProps = {
   inputText: string;
@@ -170,6 +179,13 @@ export function SetupPage({
               onCheckedChange={(soundEnabled) => updateSettings({ soundEnabled })}
             />
           </div>
+
+          <SegmentedControl
+            label="汉字字形"
+            value={settings.characterFont}
+            onChange={(characterFont) => updateSettings({ characterFont })}
+            options={CHARACTER_FONT_OPTIONS}
+          />
 
           <div className="recent-panel">
             <div className="section-heading">

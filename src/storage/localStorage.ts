@@ -4,6 +4,7 @@ import type { StoredData, StoredSettings } from "./storageTypes";
 const STORAGE_KEY = "character-practice:v2";
 
 export const DEFAULT_SETTINGS: StoredSettings = {
+  characterFont: "handwriting",
   randomOrder: false,
   showPinyin: true,
   soundEnabled: true,

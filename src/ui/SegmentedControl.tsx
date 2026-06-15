@@ -20,7 +20,7 @@ export function SegmentedControl<T extends string>({
   onChange,
 }: SegmentedControlProps<T>) {
   return (
-    <div className="segmented-field">
+    <div className="segmented-field" data-count={options.length}>
       <div className="field-label">{label}</div>
       <div className="segmented-control" role="tablist" aria-label={label}>
         {options.map((option) => {

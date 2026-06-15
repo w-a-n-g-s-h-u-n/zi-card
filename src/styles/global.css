@@ -1,3 +1,5 @@
+@import "lxgw-wenkai-screen-webfont/lxgwwenkaigbscreen.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -33,7 +35,7 @@
     "Hiragino Sans GB",
     "Microsoft YaHei",
     sans-serif;
-  --font-character:
+  --font-character-sans:
     "Noto Sans SC",
     "Noto Sans CJK SC",
     "Source Han Sans SC",
@@ -44,6 +46,22 @@
     "PingFang SC",
     "Microsoft YaHei",
     sans-serif;
+  --font-character-kai:
+    "Kaiti SC",
+    "STKaiti",
+    "KaiTi",
+    "楷体",
+    "DFKai-SB",
+    var(--font-character-sans);
+  --font-character-handwriting:
+    "LXGW WenKai Screen",
+    "LXGW WenKai",
+    "霞鹜文楷",
+    "Kaiti SC",
+    "KaiTi",
+    var(--font-character-kai);
+  --font-character: var(--font-character-handwriting);
+  --font-character-weight: 760;
   font-family: var(--font-ui);
 }
 
@@ -81,6 +99,21 @@ button {
     max(16px, env(safe-area-inset-left));
 }
 
+.app-shell[data-character-font="sans"] {
+  --font-character: var(--font-character-sans);
+  --font-character-weight: 900;
+}
+
+.app-shell[data-character-font="kai"] {
+  --font-character: var(--font-character-kai);
+  --font-character-weight: 850;
+}
+
+.app-shell[data-character-font="handwriting"] {
+  --font-character: var(--font-character-handwriting);
+  --font-character-weight: 760;
+}
+
 .setup-page,
 .result-page {
   width: min(100%, 1080px);
@@ -109,7 +142,7 @@ button {
   color: var(--color-primary-strong);
   font-family: var(--font-character);
   font-size: 34px;
-  font-weight: 800;
+  font-weight: var(--font-character-weight);
 }
 
 h1,
@@ -218,7 +251,7 @@ h2 {
 .character-chip-char {
   font-family: var(--font-character);
   font-size: 1.35rem;
-  font-weight: 800;
+  font-weight: var(--font-character-weight);
   line-height: 1.08;
 }
 
@@ -280,6 +313,10 @@ h2 {
   gap: 8px;
 }
 
+.segmented-field[data-count="3"] .segmented-control {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .segment,
 .recent-item,
 .ui-button,
@@ -290,6 +327,7 @@ h2 {
 }
 
 .segment {
+  min-width: 0;
   min-height: 56px;
   display: flex;
   align-items: center;
@@ -300,6 +338,10 @@ h2 {
   background: #f9fbfd;
   color: var(--color-text);
   font-weight: 760;
+}
+
+.segment span {
+  min-width: 0;
 }
 
 .segment[data-selected="true"] {
@@ -714,27 +756,37 @@ h2 {
 .character-glyph-field {
   position: relative;
   min-height: 0;
-  width: 100%;
+  width: min(82%, 460px, 64dvh);
+  aspect-ratio: 1;
   display: grid;
   place-items: center;
+  border: 2px solid #cbd9e4;
+  border-radius: 8px;
+  background:
+    linear-gradient(#d8e4ed 0 0) center / 100% 1px no-repeat,
+    linear-gradient(90deg, #d8e4ed 0 0) center / 1px 100% no-repeat,
+    #fff;
+  overflow: hidden;
 }
 
 .character-glyph-field::before,
 .character-glyph-field::after {
   content: "";
   position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 142%;
   pointer-events: none;
-  opacity: 0.7;
+  border-top: 1px dashed #cbd9e4;
+  opacity: 0.78;
 }
 
 .character-glyph-field::before {
-  width: min(76%, 460px);
-  border-top: 1px dashed #d9e5ee;
+  transform: translate(-50%, -50%) rotate(45deg);
 }
 
 .character-glyph-field::after {
-  height: min(76%, 460px);
-  border-left: 1px dashed #d9e5ee;
+  transform: translate(-50%, -50%) rotate(-45deg);
 }
 
 .character-label {
@@ -754,7 +806,7 @@ h2 {
   align-self: center;
   font-family: var(--font-character);
   font-size: clamp(7.8rem, 31dvh, 17rem);
-  font-weight: 900;
+  font-weight: var(--font-character-weight);
   line-height: 0.9;
   color: var(--color-text);
 }
@@ -817,7 +869,7 @@ h2 {
   color: var(--color-text);
   font-family: var(--font-character);
   font-size: 2.6rem;
-  font-weight: 900;
+  font-weight: var(--font-character-weight);
 }
 
 .find-option[data-correct="true"] {
@@ -1055,7 +1107,7 @@ h2 {
   color: var(--color-text);
   font-family: var(--font-character);
   font-size: 1.35rem;
-  font-weight: 900;
+  font-weight: var(--font-character-weight);
   line-height: 1;
 }
 
