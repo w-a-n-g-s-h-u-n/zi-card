@@ -261,27 +261,6 @@ export default function App() {
     await navigator.clipboard?.writeText(text);
   }
 
-  function copyWithCopyEvent(text: string): boolean {
-    let copied = false;
-
-    const handleCopy = (event: ClipboardEvent) => {
-      event.clipboardData?.setData("text/plain", text);
-      event.preventDefault();
-      copied = true;
-    };
-
-    document.addEventListener("copy", handleCopy, { once: true });
-
-    try {
-      const commandCopied = document.execCommand("copy");
-      return copied || commandCopied;
-    } catch {
-      return false;
-    } finally {
-      document.removeEventListener("copy", handleCopy);
-    }
-  }
-
   async function copyText(text: string): Promise<boolean> {
     if (navigator.clipboard?.writeText) {
       try {
@@ -290,10 +269,6 @@ export default function App() {
       } catch {
         // Some Android browsers expose Clipboard API but still reject writes.
       }
-    }
-
-    if (copyWithCopyEvent(text)) {
-      return true;
     }
 
     try {
@@ -326,32 +301,29 @@ export default function App() {
       title: "识字小练习",
       text: `本次字表：${text}\n${url}`,
     };
+    let copied = await copyText(url);
 
     setShareUrl(url);
 
     if (isWechatBrowser()) {
-      const copied = await copyText(url);
       setShareStatus(copied ? "链接已复制，请点右上角分享" : "请点右上角分享");
       return;
     }
 
     if (navigator.share) {
-      let copied = false;
-
       try {
-        const sharePromise = navigator.share(shareData);
-        copied = await copyText(url);
-        await sharePromise;
-        setShareStatus("已打开分享");
+        await navigator.share(shareData);
+        setShareStatus(copied ? "已打开分享，链接已复制" : "已打开分享");
         return;
       } catch {
-        copied ||= await copyText(url);
+        if (!copied) {
+          copied = await copyText(url);
+        }
         setShareStatus(copied ? "分享未成功，链接已复制" : "分享未成功，请从地址栏复制");
         return;
       }
     }
 
-    const copied = await copyText(url);
     setShareStatus(copied ? "链接已复制" : "请从地址栏复制");
   }
 
