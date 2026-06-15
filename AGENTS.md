@@ -15,8 +15,8 @@
 - 图标使用 `lucide-react`。
 - 开关控件使用 Radix UI。
 - 拼音使用 `pinyin-pro` 生成。除非有明确原因，不要重新引入手工维护的拼音表。
-- 图片识别使用 `@paddleocr/paddleocr-js` 在浏览器本地完成，配置 `lang: "ch"`、`ocrVersion: "PP-OCRv5"`。不要再引入 Tesseract 兼容逻辑。
-- OCR 初始化固定使用 WASM 后端。首页只做模型域名 DNS 预取，用户点击或聚焦 `识别图片` 前才预连接并预热模型；不要在没有明确取舍时改成更小但更不准的 tiny 模型。
+- 图片识别使用 `@paddleocr/paddleocr-js` 在浏览器本地完成，显式远程加载 PP-OCRv5 det/rec ONNX tar 模型。不要再引入 Tesseract 兼容逻辑。
+- OCR 初始化固定使用 WASM 后端。首页不主动初始化 OCR，用户点击或聚焦 `识别图片` 前才预连接并预热模型。模型源优先 `https://bj.bcebos.com/paddle-model-ecology/`，失败后回退 Paddle 默认 bucket 域名；不要在没有明确取舍时改成更小但更不准的 tiny 模型，也不要把大模型文件放进仓库。
 - 手写字形使用 `lxgw-wenkai-screen-webfont` 自托管静态字体资源，不依赖外部 CDN；字体 CSS 通过 `src/utils/handwritingFont.ts` 按需异步加载，不进入首屏全局 CSS。
 - 产物必须保持为纯静态 HTML/CSS/JS。不要添加后端、账号系统或服务端存储。
 - 远程读音当前使用免费的有道 `dictvoice` 公开接口作为优先远程 TTS；它只能读文本，不支持通过拼音指定多音字读音。
