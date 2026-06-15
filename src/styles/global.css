@@ -61,7 +61,7 @@
     "KaiTi",
     var(--font-character-kai);
   --font-character: var(--font-character-handwriting);
-  --font-character-weight: 760;
+  --font-character-weight: 400;
   font-family: var(--font-ui);
 }
 
@@ -111,7 +111,7 @@ button {
 
 .app-shell[data-character-font="handwriting"] {
   --font-character: var(--font-character-handwriting);
-  --font-character-weight: 760;
+  --font-character-weight: 400;
 }
 
 .setup-page,
