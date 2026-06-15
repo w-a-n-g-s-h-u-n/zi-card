@@ -37,7 +37,7 @@ import { copyText } from "./utils/clipboard";
 import { useRemoteFocusNavigation } from "./utils/remoteFocus";
 import { extractUniqueCharacters, joinCharacters } from "./utils/text";
 import { recognizeCharacterImages } from "./ocr/imageOcr";
-import type { OcrUiState } from "./types/ocr";
+import type { OcrPreviewImage, OcrUiState } from "./types/ocr";
 
 type PageState = "setup" | "practice" | "result";
 
@@ -63,6 +63,7 @@ export default function App() {
   const [resultStatus, setResultStatus] = useState<string | null>(null);
   const [session, setSession] = useState<PracticeSession | null>(null);
   const [ocrState, setOcrState] = useState<OcrUiState>(OCR_IDLE_STATE);
+  const [ocrPreviewImages, setOcrPreviewImages] = useState<OcrPreviewImage[]>([]);
   const [lastOcrFiles, setLastOcrFiles] = useState<File[]>([]);
 
   useEffect(() => {
@@ -108,6 +109,13 @@ export default function App() {
     };
   }, [resultStatus]);
 
+  useEffect(
+    () => () => {
+      revokeOcrPreviewImages(ocrPreviewImages);
+    },
+    [ocrPreviewImages],
+  );
+
   const previewItems = useMemo(
     () => createCharacterPreviewItems(inputText, selectedPinyins),
     [inputText, selectedPinyins],
@@ -151,6 +159,7 @@ export default function App() {
 
     setShareStatus(null);
     setLastOcrFiles(files);
+    setOcrPreviewImages(createOcrPreviewImages(files));
     setOcrState({
       candidateText: "",
       message: "准备识别图片",
@@ -230,6 +239,7 @@ export default function App() {
     const addedCount = mergedChars.length - currentChars.length;
 
     updateInputText(joinCharacters(mergedChars));
+    setOcrPreviewImages([]);
     setOcrState({
       ...OCR_IDLE_STATE,
       message: addedCount > 0 ? `已加入 ${addedCount} 个字` : "候选字都已在当前字表中",
@@ -246,6 +256,8 @@ export default function App() {
   }
 
   function clearOcrCandidates() {
+    setOcrPreviewImages([]);
+    setLastOcrFiles([]);
     setOcrState(OCR_IDLE_STATE);
   }
 
@@ -452,6 +464,7 @@ export default function App() {
           recentLists={recentLists}
           settings={settings}
           previewItems={previewItems}
+          ocrPreviewImages={ocrPreviewImages}
           ocrState={ocrState}
           shareStatus={shareStatus}
           onImageFilesSelected={recognizeImages}
@@ -523,4 +536,18 @@ function mergeCharacterLists(currentChars: string[], nextChars: string[]): strin
 
 function isOcrWorkingStatus(status: OcrUiState["status"]): boolean {
   return status === "loading" || status === "recognizing";
+}
+
+function createOcrPreviewImages(files: File[]): OcrPreviewImage[] {
+  return files.map((file, index) => ({
+    id: `${file.name}-${file.lastModified}-${file.size}-${index}`,
+    name: file.name,
+    url: URL.createObjectURL(file),
+  }));
+}
+
+function revokeOcrPreviewImages(images: OcrPreviewImage[]) {
+  for (const image of images) {
+    URL.revokeObjectURL(image.url);
+  }
 }

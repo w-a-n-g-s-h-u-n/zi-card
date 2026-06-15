@@ -27,7 +27,7 @@ import { Toggle } from "../ui/Toggle";
 import { extractUniqueCharacters, joinCharacters } from "../utils/text";
 import type { CharacterFont, StoredSettings } from "../storage/storageTypes";
 import { getRecentListKey } from "../storage/localStorage";
-import type { OcrUiState } from "../types/ocr";
+import type { OcrPreviewImage, OcrUiState } from "../types/ocr";
 
 const CHARACTER_FONT_OPTIONS: Array<{ value: CharacterFont; label: string; icon: LucideIcon }> = [
   { value: "sans", label: "标准", icon: Type },
@@ -37,6 +37,7 @@ const CHARACTER_FONT_OPTIONS: Array<{ value: CharacterFont; label: string; icon:
 
 type SetupPageProps = {
   inputText: string;
+  ocrPreviewImages: OcrPreviewImage[];
   ocrState: OcrUiState;
   settings: StoredSettings;
   recentLists: CharacterDraft[][];
@@ -61,6 +62,7 @@ type SetupPageProps = {
 
 export function SetupPage({
   inputText,
+  ocrPreviewImages,
   ocrState,
   settings,
   recentLists,
@@ -85,6 +87,7 @@ export function SetupPage({
   const imageInputRef = useRef<HTMLInputElement>(null);
   const canStart = previewItems.length > 0;
   const isOcrWorking = ocrState.status === "loading" || ocrState.status === "recognizing";
+  const showOcrDetails = ocrState.status !== "idle" || ocrPreviewImages.length > 0;
   const hasOcrResult = ocrState.status === "pending";
   const ocrCandidateCount = extractUniqueCharacters(ocrState.candidateText).length;
   const canConfirmOcr = ocrCandidateCount > 0;
@@ -132,7 +135,7 @@ export function SetupPage({
             onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onInputChange(event.target.value)}
           />
 
-          <div className="image-ocr-panel" data-status={ocrState.status}>
+          <div className="image-ocr-panel" data-expanded={showOcrDetails} data-status={ocrState.status}>
             <div className="image-ocr-topline">
               <button
                 className="image-ocr-button"
@@ -156,61 +159,81 @@ export function SetupPage({
                 disabled={isOcrWorking}
                 onChange={handleImageInputChange}
               />
-              <div className="image-ocr-message" aria-live="polite">
-                {ocrState.message || "照片字表"}
-              </div>
             </div>
 
-            {isOcrWorking ? (
-              <div className="image-ocr-progress" aria-label="识别进度">
-                <div style={{ width: `${Math.round(ocrState.progress * 100)}%` }} />
-              </div>
-            ) : null}
+            {showOcrDetails ? (
+              <div className="image-ocr-details">
+                <div className="image-ocr-message" aria-live="polite">
+                  {ocrState.message}
+                </div>
 
-            {ocrState.results.length > 0 ? (
-              <div className="image-ocr-results" aria-label="图片识别结果">
-                {ocrState.results.map((result, index) => (
-                  <div className="image-ocr-result" data-error={Boolean(result.error)} key={`${result.fileName}-${index}`}>
-                    <span>{result.fileName}</span>
-                    <strong>{result.error ? "失败" : `${result.charCount} 字`}</strong>
+                {ocrPreviewImages.length > 0 ? (
+                  <div className="image-ocr-preview-list" aria-label="待识别图片">
+                    {ocrPreviewImages.map((image) => (
+                      <figure className="image-ocr-preview" key={image.id}>
+                        <img alt={image.name} src={image.url} />
+                        <figcaption>{image.name}</figcaption>
+                      </figure>
+                    ))}
                   </div>
-                ))}
-              </div>
-            ) : null}
+                ) : null}
 
-            {hasOcrResult ? (
-              <div className="image-ocr-candidate">
-                <div className="image-ocr-candidate-heading">
-                  <span>候选字表</span>
-                  <strong>{ocrCandidateCount > 0 ? `${ocrCandidateCount} 字` : "空"}</strong>
-                </div>
-                <textarea
-                  aria-label="图片识别候选字表"
-                  className="image-ocr-candidate-input"
-                  inputMode="text"
-                  placeholder="可编辑后确认加入"
-                  value={ocrState.candidateText}
-                  onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onOcrCandidateChange(event.target.value)}
-                />
-                <div className="image-ocr-actions">
-                  <button
-                    className="image-ocr-action image-ocr-action--confirm"
-                    disabled={!canConfirmOcr}
-                    type="button"
-                    onClick={onConfirmOcr}
-                  >
-                    <CheckCircle2 aria-hidden="true" size={18} />
-                    <span>确认加入</span>
-                  </button>
-                  <button className="image-ocr-action" disabled={isOcrWorking} type="button" onClick={onRetryOcr}>
-                    <RotateCcw aria-hidden="true" size={18} />
-                    <span>重新识别</span>
-                  </button>
-                  <button className="image-ocr-action image-ocr-action--clear" type="button" onClick={onClearOcr}>
-                    <Trash2 aria-hidden="true" size={18} />
-                    <span>清空结果</span>
-                  </button>
-                </div>
+                {isOcrWorking ? (
+                  <div className="image-ocr-progress" aria-label="识别进度">
+                    <div style={{ width: `${Math.round(ocrState.progress * 100)}%` }} />
+                  </div>
+                ) : null}
+
+                {ocrState.results.length > 0 ? (
+                  <div className="image-ocr-results" aria-label="图片识别结果">
+                    {ocrState.results.map((result, index) => (
+                      <div
+                        className="image-ocr-result"
+                        data-error={Boolean(result.error)}
+                        key={`${result.fileName}-${index}`}
+                      >
+                        <span>{result.fileName}</span>
+                        <strong>{result.error ? "失败" : `${result.charCount} 字`}</strong>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
+                {hasOcrResult ? (
+                  <div className="image-ocr-candidate">
+                    <div className="image-ocr-candidate-heading">
+                      <span>候选字表</span>
+                      <strong>{ocrCandidateCount > 0 ? `${ocrCandidateCount} 字` : "空"}</strong>
+                    </div>
+                    <textarea
+                      aria-label="图片识别候选字表"
+                      className="image-ocr-candidate-input"
+                      inputMode="text"
+                      placeholder="可编辑后确认加入"
+                      value={ocrState.candidateText}
+                      onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onOcrCandidateChange(event.target.value)}
+                    />
+                    <div className="image-ocr-actions">
+                      <button
+                        className="image-ocr-action image-ocr-action--confirm"
+                        disabled={!canConfirmOcr}
+                        type="button"
+                        onClick={onConfirmOcr}
+                      >
+                        <CheckCircle2 aria-hidden="true" size={18} />
+                        <span>确认加入</span>
+                      </button>
+                      <button className="image-ocr-action" disabled={isOcrWorking} type="button" onClick={onRetryOcr}>
+                        <RotateCcw aria-hidden="true" size={18} />
+                        <span>重新识别</span>
+                      </button>
+                      <button className="image-ocr-action image-ocr-action--clear" type="button" onClick={onClearOcr}>
+                        <Trash2 aria-hidden="true" size={18} />
+                        <span>清空结果</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </div>

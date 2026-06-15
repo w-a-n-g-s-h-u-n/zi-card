@@ -6,6 +6,12 @@ export type OcrFileSummary = {
   fileName: string;
 };
 
+export type OcrPreviewImage = {
+  id: string;
+  name: string;
+  url: string;
+};
+
 export type OcrUiState = {
   candidateText: string;
   message: string;
