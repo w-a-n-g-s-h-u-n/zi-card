@@ -34,6 +34,7 @@ import type { PracticeSession } from "./types/session";
 import { playTone } from "./speech/soundEffects";
 import { prepareSpeechSynthesis, speakCharacter } from "./speech/speechSynthesis";
 import { copyText } from "./utils/clipboard";
+import { loadHandwritingFont } from "./utils/handwritingFont";
 import { useRemoteFocusNavigation } from "./utils/remoteFocus";
 import { extractUniqueCharacters, joinCharacters } from "./utils/text";
 import { recognizeCharacterImages, warmupCharacterOcr } from "./ocr/imageOcr";
@@ -79,10 +80,10 @@ export default function App() {
     setSettings(stored.settings);
     setRecentLists(stored.recentLists);
     prepareSpeechSynthesis();
-    const cancelOcrWarmup = scheduleOcrWarmup();
+    const cancelFontLoad = scheduleHandwritingFontLoad(stored.settings.characterFont);
 
     return () => {
-      cancelOcrWarmup();
+      cancelFontLoad();
     };
   }, []);
 
@@ -140,6 +141,10 @@ export default function App() {
   function updateSettings(nextSettings: StoredSettings) {
     setSettings(nextSettings);
     saveSettings(nextSettings);
+
+    if (nextSettings.characterFont === "handwriting") {
+      scheduleHandwritingFontLoad(nextSettings.characterFont);
+    }
   }
 
   function updateInputText(value: string) {
@@ -217,10 +222,7 @@ export default function App() {
   }
 
   function prepareOcrModel() {
-    if (shouldSkipOcrWarmup()) {
-      return;
-    }
-
+    preconnectOcrModelHost();
     void warmupCharacterOcr().catch(() => undefined);
   }
 
@@ -566,23 +568,30 @@ function revokeOcrPreviewImages(images: OcrPreviewImage[]) {
   }
 }
 
-function scheduleOcrWarmup(): () => void {
-  if (shouldSkipOcrWarmup()) {
+function scheduleHandwritingFontLoad(characterFont: StoredSettings["characterFont"]): () => void {
+  if (characterFont !== "handwriting") {
     return () => undefined;
   }
 
   const timer = window.setTimeout(() => {
-    void warmupCharacterOcr().catch(() => undefined);
-  }, 1600);
+    void loadHandwritingFont().catch(() => undefined);
+  }, 900);
 
   return () => {
     window.clearTimeout(timer);
   };
 }
 
-function shouldSkipOcrWarmup(): boolean {
-  const connection = (navigator as Navigator & { connection?: { effectiveType?: string; saveData?: boolean } })
-    .connection;
+function preconnectOcrModelHost() {
+  const href = "https://paddle-model-ecology.bj.bcebos.com";
 
-  return Boolean(connection?.saveData || connection?.effectiveType === "slow-2g" || connection?.effectiveType === "2g");
+  if (document.querySelector(`link[rel="preconnect"][href="${href}"]`)) {
+    return;
+  }
+
+  const link = document.createElement("link");
+  link.rel = "preconnect";
+  link.href = href;
+  link.crossOrigin = "";
+  document.head.append(link);
 }
