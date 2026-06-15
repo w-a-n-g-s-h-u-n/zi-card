@@ -209,6 +209,114 @@ h2 {
   box-shadow: 0 0 0 4px rgb(20 124 114 / 13%);
 }
 
+.image-ocr-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.image-ocr-topline {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.image-ocr-button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid #c9d7ff;
+  border-radius: 8px;
+  padding: 0 12px;
+  background: var(--color-blue-soft);
+  color: #244a9c;
+  font-weight: 820;
+  cursor: pointer;
+}
+
+.image-ocr-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.image-ocr-input {
+  display: none;
+}
+
+.image-ocr-message {
+  min-width: 0;
+  color: var(--color-muted);
+  font-size: 0.9rem;
+  font-weight: 720;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.image-ocr-panel[data-status="done"] .image-ocr-message {
+  color: var(--color-primary-strong);
+}
+
+.image-ocr-panel[data-status="error"] .image-ocr-message {
+  color: #9c3330;
+}
+
+.image-ocr-progress {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e5edf5;
+}
+
+.image-ocr-progress > div {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-primary);
+  transition: width 160ms ease;
+}
+
+.image-ocr-results {
+  display: grid;
+  gap: 6px;
+}
+
+.image-ocr-result {
+  min-height: 32px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-muted);
+  font-size: 0.86rem;
+}
+
+.image-ocr-result > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-ocr-result > strong {
+  color: var(--color-primary-strong);
+  font-size: 0.86rem;
+}
+
+.image-ocr-result[data-error="true"] > strong {
+  color: #9c3330;
+}
+
+.spin-icon {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .preview-row {
   min-height: 48px;
   display: flex;
@@ -473,6 +581,7 @@ h2 {
 
 .ui-button:focus-visible,
 .icon-button:focus-visible,
+.image-ocr-button:focus-visible,
 .segment:focus-visible,
 .toggle-root:focus-visible,
 .pinyin-choice:focus-visible,
@@ -513,6 +622,7 @@ h2 {
 
 .ui-button:active,
 .icon-button:active,
+.image-ocr-button:active,
 .segment:active,
 .find-option:active,
 .recent-main-action:active,

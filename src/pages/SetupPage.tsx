@@ -4,7 +4,9 @@ import {
   CheckCircle2,
   Dice5,
   Eye,
+  ImageUp,
   ListRestart,
+  Loader2,
   Pencil,
   Play,
   Share2,
@@ -13,6 +15,7 @@ import {
   Volume2,
 } from "lucide-react";
 import type { ChangeEvent } from "react";
+import { useRef } from "react";
 import type { LucideIcon } from "lucide-react";
 import { MODE_CONFIGS, MODE_ICONS } from "../modes";
 import type { CharacterDraft, CharacterPreviewItem } from "../types/character";
@@ -23,6 +26,7 @@ import { Toggle } from "../ui/Toggle";
 import { joinCharacters } from "../utils/text";
 import type { CharacterFont, StoredSettings } from "../storage/storageTypes";
 import { getRecentListKey } from "../storage/localStorage";
+import type { OcrUiState } from "../types/ocr";
 
 const CHARACTER_FONT_OPTIONS: Array<{ value: CharacterFont; label: string; icon: LucideIcon }> = [
   { value: "sans", label: "标准", icon: Type },
@@ -32,6 +36,7 @@ const CHARACTER_FONT_OPTIONS: Array<{ value: CharacterFont; label: string; icon:
 
 type SetupPageProps = {
   inputText: string;
+  ocrState: OcrUiState;
   settings: StoredSettings;
   recentLists: CharacterDraft[][];
   previewItems: CharacterPreviewItem[];
@@ -41,6 +46,7 @@ type SetupPageProps = {
   onUseRecent: (drafts: CharacterDraft[]) => void;
   onEditRecent: (drafts: CharacterDraft[]) => void;
   onDeleteRecent: (drafts: CharacterDraft[]) => void;
+  onImageFilesSelected: (files: File[]) => void;
   onShareRecent: (drafts: CharacterDraft[]) => void;
   editingRecentKey: string | null;
   shareStatus: string | null;
@@ -50,6 +56,7 @@ type SetupPageProps = {
 
 export function SetupPage({
   inputText,
+  ocrState,
   settings,
   recentLists,
   previewItems,
@@ -58,6 +65,7 @@ export function SetupPage({
   onSettingsChange,
   onUseRecent,
   onEditRecent,
+  onImageFilesSelected,
   onDeleteRecent,
   onShareRecent,
   editingRecentKey,
@@ -65,13 +73,25 @@ export function SetupPage({
   onShare,
   onStart,
 }: SetupPageProps) {
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const canStart = previewItems.length > 0;
+  const isOcrWorking = ocrState.status === "working";
 
   function updateSettings(patch: Partial<StoredSettings>) {
     onSettingsChange({
       ...settings,
       ...patch,
     });
+  }
+
+  function handleImageInputChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+
+    if (files.length > 0) {
+      onImageFilesSelected(files);
+    }
+
+    event.target.value = "";
   }
 
   return (
@@ -99,6 +119,53 @@ export function SetupPage({
             value={inputText}
             onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onInputChange(event.target.value)}
           />
+
+          <div className="image-ocr-panel" data-status={ocrState.status}>
+            <div className="image-ocr-topline">
+              <button
+                className="image-ocr-button"
+                disabled={isOcrWorking}
+                type="button"
+                onClick={() => imageInputRef.current?.click()}
+              >
+                {isOcrWorking ? (
+                  <Loader2 aria-hidden="true" className="spin-icon" size={20} />
+                ) : (
+                  <ImageUp aria-hidden="true" size={20} />
+                )}
+                <span>{isOcrWorking ? "识别中" : "识别图片"}</span>
+              </button>
+              <input
+                ref={imageInputRef}
+                className="image-ocr-input"
+                type="file"
+                accept="image/*"
+                multiple
+                disabled={isOcrWorking}
+                onChange={handleImageInputChange}
+              />
+              <div className="image-ocr-message" aria-live="polite">
+                {ocrState.message || "照片字表"}
+              </div>
+            </div>
+
+            {isOcrWorking ? (
+              <div className="image-ocr-progress" aria-label="识别进度">
+                <div style={{ width: `${Math.round(ocrState.progress * 100)}%` }} />
+              </div>
+            ) : null}
+
+            {ocrState.results.length > 0 ? (
+              <div className="image-ocr-results" aria-label="图片识别结果">
+                {ocrState.results.map((result, index) => (
+                  <div className="image-ocr-result" data-error={Boolean(result.error)} key={`${result.fileName}-${index}`}>
+                    <span>{result.fileName}</span>
+                    <strong>{result.error ? "失败" : `${result.charCount} 字`}</strong>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
 
           <div className="preview-row" aria-label="字表预览">
             {previewItems.length === 0 ? (
