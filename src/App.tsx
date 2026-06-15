@@ -282,7 +282,16 @@ export default function App() {
     }
   }
 
-  function copyText(text: string): boolean {
+  async function copyText(text: string): Promise<boolean> {
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        // Some Android browsers expose Clipboard API but still reject writes.
+      }
+    }
+
     if (copyWithCopyEvent(text)) {
       return true;
     }
@@ -315,14 +324,13 @@ export default function App() {
     const url = createSharedCharactersUrl(drafts, window.location.href);
     const shareData = {
       title: "识字小练习",
-      text: `本次字表：${text}`,
-      url,
+      text: `本次字表：${text}\n${url}`,
     };
 
     setShareUrl(url);
 
     if (isWechatBrowser()) {
-      const copied = copyText(url);
+      const copied = await copyText(url);
       setShareStatus(copied ? "链接已复制，请点右上角分享" : "请点右上角分享");
       return;
     }
@@ -332,18 +340,18 @@ export default function App() {
 
       try {
         const sharePromise = navigator.share(shareData);
-        copied = copyText(url);
+        copied = await copyText(url);
         await sharePromise;
         setShareStatus("已打开分享");
         return;
       } catch {
-        copied ||= copyText(url);
+        copied ||= await copyText(url);
         setShareStatus(copied ? "分享未成功，链接已复制" : "分享未成功，请从地址栏复制");
         return;
       }
     }
 
-    const copied = copyText(url);
+    const copied = await copyText(url);
     setShareStatus(copied ? "链接已复制" : "请从地址栏复制");
   }
 
