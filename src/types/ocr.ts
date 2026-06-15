@@ -1,4 +1,4 @@
-export type OcrUiStatus = "idle" | "working" | "done" | "error";
+export type OcrUiStatus = "idle" | "loading" | "recognizing" | "pending" | "error";
 
 export type OcrFileSummary = {
   charCount: number;
@@ -7,6 +7,7 @@ export type OcrFileSummary = {
 };
 
 export type OcrUiState = {
+  candidateText: string;
   message: string;
   progress: number;
   results: OcrFileSummary[];

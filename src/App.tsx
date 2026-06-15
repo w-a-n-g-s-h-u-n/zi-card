@@ -35,13 +35,14 @@ import { playTone } from "./speech/soundEffects";
 import { prepareSpeechSynthesis, speakCharacter } from "./speech/speechSynthesis";
 import { copyText } from "./utils/clipboard";
 import { useRemoteFocusNavigation } from "./utils/remoteFocus";
-import { joinCharacters } from "./utils/text";
+import { extractUniqueCharacters, joinCharacters } from "./utils/text";
 import { recognizeCharacterImages } from "./ocr/imageOcr";
 import type { OcrUiState } from "./types/ocr";
 
 type PageState = "setup" | "practice" | "result";
 
 const OCR_IDLE_STATE: OcrUiState = {
+  candidateText: "",
   message: "",
   progress: 0,
   results: [],
@@ -62,6 +63,7 @@ export default function App() {
   const [resultStatus, setResultStatus] = useState<string | null>(null);
   const [session, setSession] = useState<PracticeSession | null>(null);
   const [ocrState, setOcrState] = useState<OcrUiState>(OCR_IDLE_STATE);
+  const [lastOcrFiles, setLastOcrFiles] = useState<File[]>([]);
 
   useEffect(() => {
     const stored = readStoredData();
@@ -143,16 +145,18 @@ export default function App() {
   }
 
   async function recognizeImages(files: File[]) {
-    if (files.length === 0 || ocrState.status === "working") {
+    if (files.length === 0 || isOcrWorkingStatus(ocrState.status)) {
       return;
     }
 
     setShareStatus(null);
+    setLastOcrFiles(files);
     setOcrState({
+      candidateText: "",
       message: "准备识别图片",
       progress: 0,
       results: [],
-      status: "working",
+      status: "loading",
       totalFiles: files.length,
     });
 
@@ -162,40 +166,33 @@ export default function App() {
         const fileText = progress.fileName ? `：${progress.fileName}` : "";
 
         setOcrState({
+          candidateText: "",
           message: `${progress.status} ${currentFileNumber}/${progress.totalFiles}${fileText}`,
           progress: progress.overallProgress,
           results: [],
-          status: "working",
+          status: progress.phase === "loading" ? "loading" : "recognizing",
           totalFiles: progress.totalFiles,
         });
       });
 
-      const currentChars = getCharacterPreview(inputText);
-      const mergedChars = mergeCharacterLists(currentChars, result.chars);
-      const addedCount = mergedChars.length - currentChars.length;
-
-      if (result.chars.length > 0) {
-        updateInputText(joinCharacters(mergedChars));
-      }
-
       setOcrState({
+        candidateText: joinCharacters(result.chars),
         message:
-          addedCount > 0
-            ? `已添加 ${addedCount} 个字`
-            : result.chars.length > 0
-              ? "图片里的字已在当前字表中"
-              : "未识别到汉字",
+          result.chars.length > 0
+            ? `识别到 ${result.chars.length} 个字，请确认`
+            : "未识别到汉字，可重新识别或手动输入",
         progress: 1,
         results: result.files.map((file) => ({
           charCount: file.chars.length,
           error: file.error,
           fileName: file.fileName,
         })),
-        status: "done",
+        status: "pending",
         totalFiles: result.files.length,
       });
     } catch (error) {
       setOcrState({
+        candidateText: "",
         message: error instanceof Error ? error.message : "图片识别失败",
         progress: 0,
         results: [],
@@ -203,6 +200,53 @@ export default function App() {
         totalFiles: files.length,
       });
     }
+  }
+
+  function updateOcrCandidateText(value: string) {
+    const candidateCount = extractUniqueCharacters(value).length;
+
+    setOcrState((current) => ({
+      ...current,
+      candidateText: value,
+      message: candidateCount > 0 ? `候选字表 ${candidateCount} 个字` : "候选字表为空",
+      status: "pending",
+    }));
+  }
+
+  function confirmOcrCandidates() {
+    const candidateChars = extractUniqueCharacters(ocrState.candidateText);
+
+    if (candidateChars.length === 0) {
+      setOcrState((current) => ({
+        ...current,
+        message: "候选字表为空",
+        status: "pending",
+      }));
+      return;
+    }
+
+    const currentChars = getCharacterPreview(inputText);
+    const mergedChars = mergeCharacterLists(currentChars, candidateChars);
+    const addedCount = mergedChars.length - currentChars.length;
+
+    updateInputText(joinCharacters(mergedChars));
+    setOcrState({
+      ...OCR_IDLE_STATE,
+      message: addedCount > 0 ? `已加入 ${addedCount} 个字` : "候选字都已在当前字表中",
+      progress: 1,
+    });
+  }
+
+  function retryOcr() {
+    if (lastOcrFiles.length === 0 || isOcrWorkingStatus(ocrState.status)) {
+      return;
+    }
+
+    void recognizeImages(lastOcrFiles);
+  }
+
+  function clearOcrCandidates() {
+    setOcrState(OCR_IDLE_STATE);
   }
 
   function startPractice() {
@@ -415,7 +459,11 @@ export default function App() {
           editingRecentKey={editingRecentKey}
           onDeleteRecent={removeRecent}
           onEditRecent={editRecent}
+          onClearOcr={clearOcrCandidates}
+          onConfirmOcr={confirmOcrCandidates}
           onPinyinChange={updateSelectedPinyin}
+          onOcrCandidateChange={updateOcrCandidateText}
+          onRetryOcr={retryOcr}
           onSettingsChange={updateSettings}
           onShare={shareCurrentCharacters}
           onShareRecent={shareRecent}
@@ -471,4 +519,8 @@ function mergeCharacterLists(currentChars: string[], nextChars: string[]): strin
   }
 
   return result;
+}
+
+function isOcrWorkingStatus(status: OcrUiState["status"]): boolean {
+  return status === "loading" || status === "recognizing";
 }

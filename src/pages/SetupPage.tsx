@@ -9,6 +9,7 @@ import {
   Loader2,
   Pencil,
   Play,
+  RotateCcw,
   Share2,
   Type,
   Trash2,
@@ -23,7 +24,7 @@ import type { PracticeMode } from "../types/mode";
 import { Button } from "../ui/Button";
 import { SegmentedControl } from "../ui/SegmentedControl";
 import { Toggle } from "../ui/Toggle";
-import { joinCharacters } from "../utils/text";
+import { extractUniqueCharacters, joinCharacters } from "../utils/text";
 import type { CharacterFont, StoredSettings } from "../storage/storageTypes";
 import { getRecentListKey } from "../storage/localStorage";
 import type { OcrUiState } from "../types/ocr";
@@ -46,7 +47,11 @@ type SetupPageProps = {
   onUseRecent: (drafts: CharacterDraft[]) => void;
   onEditRecent: (drafts: CharacterDraft[]) => void;
   onDeleteRecent: (drafts: CharacterDraft[]) => void;
+  onClearOcr: () => void;
+  onConfirmOcr: () => void;
   onImageFilesSelected: (files: File[]) => void;
+  onOcrCandidateChange: (value: string) => void;
+  onRetryOcr: () => void;
   onShareRecent: (drafts: CharacterDraft[]) => void;
   editingRecentKey: string | null;
   shareStatus: string | null;
@@ -66,7 +71,11 @@ export function SetupPage({
   onUseRecent,
   onEditRecent,
   onImageFilesSelected,
+  onClearOcr,
+  onConfirmOcr,
   onDeleteRecent,
+  onOcrCandidateChange,
+  onRetryOcr,
   onShareRecent,
   editingRecentKey,
   shareStatus,
@@ -75,7 +84,10 @@ export function SetupPage({
 }: SetupPageProps) {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const canStart = previewItems.length > 0;
-  const isOcrWorking = ocrState.status === "working";
+  const isOcrWorking = ocrState.status === "loading" || ocrState.status === "recognizing";
+  const hasOcrResult = ocrState.status === "pending";
+  const ocrCandidateCount = extractUniqueCharacters(ocrState.candidateText).length;
+  const canConfirmOcr = ocrCandidateCount > 0;
 
   function updateSettings(patch: Partial<StoredSettings>) {
     onSettingsChange({
@@ -133,7 +145,7 @@ export function SetupPage({
                 ) : (
                   <ImageUp aria-hidden="true" size={20} />
                 )}
-                <span>{isOcrWorking ? "识别中" : "识别图片"}</span>
+                <span>{ocrState.status === "loading" ? "加载模型" : isOcrWorking ? "识别中" : "识别图片"}</span>
               </button>
               <input
                 ref={imageInputRef}
@@ -163,6 +175,42 @@ export function SetupPage({
                     <strong>{result.error ? "失败" : `${result.charCount} 字`}</strong>
                   </div>
                 ))}
+              </div>
+            ) : null}
+
+            {hasOcrResult ? (
+              <div className="image-ocr-candidate">
+                <div className="image-ocr-candidate-heading">
+                  <span>候选字表</span>
+                  <strong>{ocrCandidateCount > 0 ? `${ocrCandidateCount} 字` : "空"}</strong>
+                </div>
+                <textarea
+                  aria-label="图片识别候选字表"
+                  className="image-ocr-candidate-input"
+                  inputMode="text"
+                  placeholder="可编辑后确认加入"
+                  value={ocrState.candidateText}
+                  onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onOcrCandidateChange(event.target.value)}
+                />
+                <div className="image-ocr-actions">
+                  <button
+                    className="image-ocr-action image-ocr-action--confirm"
+                    disabled={!canConfirmOcr}
+                    type="button"
+                    onClick={onConfirmOcr}
+                  >
+                    <CheckCircle2 aria-hidden="true" size={18} />
+                    <span>确认加入</span>
+                  </button>
+                  <button className="image-ocr-action" disabled={isOcrWorking} type="button" onClick={onRetryOcr}>
+                    <RotateCcw aria-hidden="true" size={18} />
+                    <span>重新识别</span>
+                  </button>
+                  <button className="image-ocr-action image-ocr-action--clear" type="button" onClick={onClearOcr}>
+                    <Trash2 aria-hidden="true" size={18} />
+                    <span>清空结果</span>
+                  </button>
+                </div>
               </div>
             ) : null}
           </div>
