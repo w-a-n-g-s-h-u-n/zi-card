@@ -32,8 +32,15 @@ export type SessionStats = {
   total: number;
   practiced: number;
   knownCount: number;
+  unknownCount: number;
+  reviewOnlyCount: number;
   reviewCount: number;
+  passedCount: number;
   accuracy: number;
+  passRate: number;
   knownChars: string[];
+  unknownChars: string[];
+  reviewOnlyChars: string[];
   reviewChars: string[];
+  unansweredChars: string[];
 };

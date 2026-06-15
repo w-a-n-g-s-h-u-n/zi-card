@@ -4,7 +4,7 @@ type ResultBadgeProps = {
   icon: LucideIcon;
   label: string;
   value: string | number;
-  tone: "green" | "yellow" | "blue";
+  tone: "green" | "yellow" | "blue" | "red" | "neutral";
 };
 
 export function ResultBadge({ icon: Icon, label, value, tone }: ResultBadgeProps) {

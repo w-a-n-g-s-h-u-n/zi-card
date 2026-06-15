@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import copyTextToClipboard from "copy-text-to-clipboard";
 import {
   createCharacterItemsFromDrafts,
   createCharacterPreviewItems,
@@ -8,7 +7,7 @@ import {
 } from "./core/characters";
 import { getReviewItems } from "./core/review";
 import { getSessionStats } from "./core/scoring";
-import { createSharedCharactersUrl, getSharedCharacterDraftsFromUrl } from "./core/share";
+import { createSharedCharactersData, getSharedCharacterDraftsFromUrl } from "./core/share";
 import {
   createPracticeSession,
   createReviewSession,
@@ -34,6 +33,7 @@ import type { CharacterDraft } from "./types/character";
 import type { PracticeSession } from "./types/session";
 import { playTone } from "./speech/soundEffects";
 import { prepareSpeechSynthesis, speakCharacter } from "./speech/speechSynthesis";
+import { copyText } from "./utils/clipboard";
 import { useRemoteFocusNavigation } from "./utils/remoteFocus";
 import { joinCharacters } from "./utils/text";
 
@@ -49,6 +49,7 @@ export default function App() {
   const [recentLists, setRecentLists] = useState<CharacterDraft[][]>([]);
   const [editingRecentKey, setEditingRecentKey] = useState<string | null>(null);
   const [shareStatus, setShareStatus] = useState<string | null>(null);
+  const [resultStatus, setResultStatus] = useState<string | null>(null);
   const [session, setSession] = useState<PracticeSession | null>(null);
 
   useEffect(() => {
@@ -80,6 +81,20 @@ export default function App() {
     };
   }, [shareStatus]);
 
+  useEffect(() => {
+    if (!resultStatus) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      setResultStatus(null);
+    }, 2200);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [resultStatus]);
+
   const previewItems = useMemo(
     () => createCharacterPreviewItems(inputText, selectedPinyins),
     [inputText, selectedPinyins],
@@ -93,13 +108,6 @@ export default function App() {
       })),
     [previewItems],
   );
-
-  const sourceChars = useMemo(() => {
-    if (session) {
-      return session.items.map((item) => item.char);
-    }
-    return previewDrafts.map((draft) => draft.char);
-  }, [previewDrafts, session]);
 
   const stats = useMemo(() => (session ? getSessionStats(session) : null), [session]);
 
@@ -230,10 +238,16 @@ export default function App() {
   function restartSetup() {
     setPage("setup");
     setSession(null);
+    setResultStatus(null);
   }
 
   function finishSession() {
     setPage("result");
+  }
+
+  function continuePractice() {
+    setPage("practice");
+    setResultStatus(null);
   }
 
   function reviewMistakes() {
@@ -248,46 +262,28 @@ export default function App() {
     }
 
     setSession(createReviewSession(session, reviewItems, settings.mode, settings.randomOrder));
+    setResultStatus(null);
     setPage("practice");
   }
 
-  async function copySourceChars() {
-    const text = joinCharacters(sourceChars);
-
-    if (!text) {
+  async function copyReviewChars() {
+    if (!stats || stats.reviewChars.length === 0) {
       return;
     }
 
-    await navigator.clipboard?.writeText(text);
-  }
-
-  async function copyText(text: string): Promise<boolean> {
-    if (navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(text);
-        return true;
-      } catch {
-        // Some Android browsers expose Clipboard API but still reject writes.
-      }
-    }
-
-    try {
-      return copyTextToClipboard(text);
-    } catch {
-      return false;
-    }
-  }
-
-  function getBrowserUserAgent() {
-    return window.navigator.userAgent.toLowerCase();
+    setResultStatus((await copyText(joinCharacters(stats.reviewChars))) ? "待练字已复制" : "复制失败，请手动选择");
   }
 
   function isWechatBrowser() {
-    return getBrowserUserAgent().includes("micromessenger");
+    return window.navigator.userAgent.toLowerCase().includes("micromessenger");
   }
 
-  function setShareUrl(url: string) {
+  function updateShareUrl(url: string) {
     window.history.replaceState(null, "", url);
+  }
+
+  async function copyShareLink(url: string, successText: string, failureText: string) {
+    setShareStatus((await copyText(url)) ? successText : failureText);
   }
 
   async function shareCharacters(drafts: CharacterDraft[]) {
@@ -295,36 +291,26 @@ export default function App() {
       return;
     }
 
-    const text = joinCharacters(drafts.map((draft) => draft.char));
-    const url = createSharedCharactersUrl(drafts, window.location.href);
-    const shareData = {
-      title: "识字小练习",
-      text: `本次字表：${text}\n${url}`,
-    };
-    let copied = await copyText(url);
-
-    setShareUrl(url);
+    const shareData = createSharedCharactersData(drafts, window.location.href);
+    updateShareUrl(shareData.url);
 
     if (isWechatBrowser()) {
-      setShareStatus(copied ? "链接已复制，请点右上角分享" : "请点右上角分享");
+      await copyShareLink(shareData.url, "链接已复制，请点右上角分享", "请点右上角分享");
       return;
     }
 
     if (navigator.share) {
       try {
         await navigator.share(shareData);
-        setShareStatus(copied ? "已打开分享，链接已复制" : "已打开分享");
+        setShareStatus("已打开分享");
         return;
       } catch {
-        if (!copied) {
-          copied = await copyText(url);
-        }
-        setShareStatus(copied ? "分享未成功，链接已复制" : "分享未成功，请从地址栏复制");
+        await copyShareLink(shareData.url, "分享未成功，链接已复制", "分享未成功，请从地址栏复制");
         return;
       }
     }
 
-    setShareStatus(copied ? "链接已复制" : "请从地址栏复制");
+    await copyShareLink(shareData.url, "链接已复制", "请从地址栏复制");
   }
 
   function shareCurrentCharacters() {
@@ -381,10 +367,12 @@ export default function App() {
 
       {page === "result" && session && stats ? (
         <ResultPage
+          actionStatus={resultStatus}
+          canContinue={!isSessionComplete(session)}
           canReview={stats.reviewCount > 0}
-          sourceChars={sourceChars}
           stats={stats}
-          onCopy={copySourceChars}
+          onContinue={continuePractice}
+          onCopyReview={copyReviewChars}
           onRestart={restartSetup}
           onReview={reviewMistakes}
         />

@@ -1,8 +1,16 @@
 import type { CharacterDraft } from "../types/character";
+import { joinCharacters } from "../utils/text";
 import { getCharacterPinyinOptions } from "./pinyin";
 
 const SHARE_WORDS_PARAM = "w";
+const SHARE_TITLE = "识字小练习";
 const HAN_CHARACTER_RE = /\p{Script=Han}/u;
+
+export type SharedCharactersData = {
+  title: string;
+  text: string;
+  url: string;
+};
 
 export function getSharedCharacterDraftsFromUrl(href: string): CharacterDraft[] {
   try {
@@ -21,10 +29,22 @@ export function getSharedCharacterDraftsFromUrl(href: string): CharacterDraft[] 
 
 export function createSharedCharactersUrl(drafts: CharacterDraft[], href: string): string {
   const url = new URL(href);
-  const encodedDrafts = encodeSharedDrafts(drafts);
-  const query = `${SHARE_WORDS_PARAM}=${encodedDrafts}`;
+  url.search = "";
+  url.hash = "";
+  url.searchParams.set(SHARE_WORDS_PARAM, encodeSharedDrafts(drafts));
 
-  return `${url.origin}${url.pathname}?${query}`;
+  return url.toString();
+}
+
+export function createSharedCharactersData(drafts: CharacterDraft[], href: string): SharedCharactersData {
+  const sourceText = joinCharacters(drafts.map((draft) => draft.char));
+  const url = createSharedCharactersUrl(drafts, href);
+
+  return {
+    title: SHARE_TITLE,
+    text: `本次字表：${sourceText}`,
+    url,
+  };
 }
 
 function encodeSharedDrafts(drafts: CharacterDraft[]): string {
