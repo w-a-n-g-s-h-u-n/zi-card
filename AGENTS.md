@@ -16,6 +16,7 @@
 - 开关控件使用 Radix UI。
 - 拼音使用 `pinyin-pro` 生成。除非有明确原因，不要重新引入手工维护的拼音表。
 - 图片识别使用 `@paddleocr/paddleocr-js` 在浏览器本地完成，配置 `lang: "ch"`、`ocrVersion: "PP-OCRv5"`。不要再引入 Tesseract 兼容逻辑。
+- OCR 初始化固定使用 WASM 后端，页面会对 PaddleOCR 模型域名预连接，并在合适网络下空闲预热模型；不要在没有明确取舍时改成更小但更不准的 tiny 模型。
 - 手写字形使用 `lxgw-wenkai-screen-webfont` 自托管静态字体资源，不依赖外部 CDN。
 - 产物必须保持为纯静态 HTML/CSS/JS。不要添加后端、账号系统或服务端存储。
 - 远程读音当前使用免费的有道 `dictvoice` 公开接口作为优先远程 TTS；它只能读文本，不支持通过拼音指定多音字读音。

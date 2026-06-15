@@ -36,7 +36,7 @@ import { prepareSpeechSynthesis, speakCharacter } from "./speech/speechSynthesis
 import { copyText } from "./utils/clipboard";
 import { useRemoteFocusNavigation } from "./utils/remoteFocus";
 import { extractUniqueCharacters, joinCharacters } from "./utils/text";
-import { recognizeCharacterImages } from "./ocr/imageOcr";
+import { recognizeCharacterImages, warmupCharacterOcr } from "./ocr/imageOcr";
 import type { OcrPreviewImage, OcrUiState } from "./types/ocr";
 
 type PageState = "setup" | "practice" | "result";
@@ -79,6 +79,11 @@ export default function App() {
     setSettings(stored.settings);
     setRecentLists(stored.recentLists);
     prepareSpeechSynthesis();
+    const cancelOcrWarmup = scheduleOcrWarmup();
+
+    return () => {
+      cancelOcrWarmup();
+    };
   }, []);
 
   useEffect(() => {
@@ -209,6 +214,14 @@ export default function App() {
         totalFiles: files.length,
       });
     }
+  }
+
+  function prepareOcrModel() {
+    if (shouldSkipOcrWarmup()) {
+      return;
+    }
+
+    void warmupCharacterOcr().catch(() => undefined);
   }
 
   function updateOcrCandidateText(value: string) {
@@ -476,6 +489,7 @@ export default function App() {
           onConfirmOcr={confirmOcrCandidates}
           onPinyinChange={updateSelectedPinyin}
           onOcrCandidateChange={updateOcrCandidateText}
+          onPrepareOcr={prepareOcrModel}
           onRetryOcr={retryOcr}
           onSettingsChange={updateSettings}
           onShare={shareCurrentCharacters}
@@ -550,4 +564,25 @@ function revokeOcrPreviewImages(images: OcrPreviewImage[]) {
   for (const image of images) {
     URL.revokeObjectURL(image.url);
   }
+}
+
+function scheduleOcrWarmup(): () => void {
+  if (shouldSkipOcrWarmup()) {
+    return () => undefined;
+  }
+
+  const timer = window.setTimeout(() => {
+    void warmupCharacterOcr().catch(() => undefined);
+  }, 1600);
+
+  return () => {
+    window.clearTimeout(timer);
+  };
+}
+
+function shouldSkipOcrWarmup(): boolean {
+  const connection = (navigator as Navigator & { connection?: { effectiveType?: string; saveData?: boolean } })
+    .connection;
+
+  return Boolean(connection?.saveData || connection?.effectiveType === "slow-2g" || connection?.effectiveType === "2g");
 }

@@ -52,6 +52,7 @@ type SetupPageProps = {
   onConfirmOcr: () => void;
   onImageFilesSelected: (files: File[]) => void;
   onOcrCandidateChange: (value: string) => void;
+  onPrepareOcr: () => void;
   onRetryOcr: () => void;
   onShareRecent: (drafts: CharacterDraft[]) => void;
   editingRecentKey: string | null;
@@ -77,6 +78,7 @@ export function SetupPage({
   onConfirmOcr,
   onDeleteRecent,
   onOcrCandidateChange,
+  onPrepareOcr,
   onRetryOcr,
   onShareRecent,
   editingRecentKey,
@@ -142,6 +144,8 @@ export function SetupPage({
                 disabled={isOcrWorking}
                 type="button"
                 onClick={() => imageInputRef.current?.click()}
+                onFocus={onPrepareOcr}
+                onPointerDown={onPrepareOcr}
               >
                 {isOcrWorking ? (
                   <Loader2 aria-hidden="true" className="spin-icon" size={20} />

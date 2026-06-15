@@ -162,6 +162,10 @@ export async function recognizeCharacterImages(
   };
 }
 
+export function warmupCharacterOcr(): Promise<void> {
+  return getPaddleOcr().then(() => undefined);
+}
+
 function getPaddleOcr(): Promise<PaddleOcrInstance> {
   if (!paddleOcrPromise) {
     const promise = import("@paddleocr/paddleocr-js")
@@ -170,7 +174,8 @@ function getPaddleOcr(): Promise<PaddleOcrInstance> {
           lang: "ch",
           ocrVersion: "PP-OCRv5",
           ortOptions: {
-            backend: "auto",
+            backend: "wasm",
+            numThreads: 1,
           },
         }),
       )
