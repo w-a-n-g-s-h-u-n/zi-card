@@ -1,5 +1,6 @@
 import type { OcrResult } from "@paddleocr/paddleocr-js";
 import { extractUniqueCharacters } from "../utils/text";
+import { createOcrModelAssetUrl, OCR_DETECTION_MODEL, OCR_RECOGNITION_MODEL } from "./modelAssets";
 
 export type ImageOcrFileResult = {
   chars: string[];
@@ -27,32 +28,10 @@ export type ImageOcrProgress = {
 };
 
 const IMAGE_FILE_RE = /\.(bmp|gif|jpe?g|png|tiff?|webp)$/i;
-const OCR_MODEL_PATH = "paddlex/official_inference_model/paddle3.0.0/";
 const MAX_IMAGE_SIDE = 1600;
 const PREPARE_PROGRESS_START = 0.08;
 const PREPARE_PROGRESS_END = 0.36;
 const RECOGNIZE_PROGRESS = 0.72;
-
-const OCR_MODEL_SOURCES = [
-  {
-    name: "bcebos-gateway",
-    baseUrl: "https://bj.bcebos.com/paddle-model-ecology/",
-  },
-  {
-    name: "bcebos-bucket",
-    baseUrl: "https://paddle-model-ecology.bj.bcebos.com/",
-  },
-] as const;
-
-const OCR_DETECTION_MODEL = {
-  name: "PP-OCRv5_mobile_det",
-  fileName: "PP-OCRv5_mobile_det_onnx_infer.tar",
-} as const;
-
-const OCR_RECOGNITION_MODEL = {
-  name: "PP-OCRv5_mobile_rec",
-  fileName: "PP-OCRv5_mobile_rec_onnx_infer.tar",
-} as const;
 
 type PaddleOcrModule = typeof import("@paddleocr/paddleocr-js");
 type PaddleOcrInstance = Awaited<ReturnType<PaddleOcrModule["PaddleOCR"]["create"]>>;
@@ -85,7 +64,7 @@ export async function recognizeCharacterImages(
     fileProgress: 0,
     overallProgress: 0,
     phase: "loading",
-    status: "加载本地识别模型",
+    status: "加载识别模型",
     totalFiles: imageFiles.length,
   });
 
@@ -192,30 +171,30 @@ function getPaddleOcr(): Promise<PaddleOcrInstance> {
   if (!paddleOcrPromise) {
     const promise = import("@paddleocr/paddleocr-js")
       .then(async ({ PaddleOCR }) => {
-        let lastError: unknown;
+        const [detectionAsset, recognitionAsset] = await Promise.all([
+          createOcrModelAssetUrl(OCR_DETECTION_MODEL),
+          createOcrModelAssetUrl(OCR_RECOGNITION_MODEL),
+        ]);
 
-        for (const source of OCR_MODEL_SOURCES) {
-          try {
-            return await PaddleOCR.create({
-              textDetectionModelName: OCR_DETECTION_MODEL.name,
-              textDetectionModelAsset: {
-                url: getRemoteModelUrl(source.baseUrl, OCR_DETECTION_MODEL.fileName),
-              },
-              textRecognitionModelName: OCR_RECOGNITION_MODEL.name,
-              textRecognitionModelAsset: {
-                url: getRemoteModelUrl(source.baseUrl, OCR_RECOGNITION_MODEL.fileName),
-              },
-              ortOptions: {
-                backend: "wasm",
-                numThreads: 1,
-              },
-            });
-          } catch (error) {
-            lastError = error;
-          }
+        try {
+          return await PaddleOCR.create({
+            textDetectionModelName: detectionAsset.modelName,
+            textDetectionModelAsset: {
+              url: detectionAsset.url,
+            },
+            textRecognitionModelName: recognitionAsset.modelName,
+            textRecognitionModelAsset: {
+              url: recognitionAsset.url,
+            },
+            ortOptions: {
+              backend: "wasm",
+              numThreads: 1,
+            },
+          });
+        } finally {
+          URL.revokeObjectURL(detectionAsset.url);
+          URL.revokeObjectURL(recognitionAsset.url);
         }
-
-        throw lastError;
       })
       .catch((error: unknown) => {
         paddleOcrPromise = null;
@@ -375,8 +354,4 @@ function clamp(value: number): number {
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "请手动输入字表";
-}
-
-function getRemoteModelUrl(baseUrl: string, fileName: string): string {
-  return new URL(`${OCR_MODEL_PATH}${fileName}`, baseUrl).toString();
 }

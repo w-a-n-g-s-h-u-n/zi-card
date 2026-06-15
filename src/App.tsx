@@ -222,7 +222,6 @@ export default function App() {
   }
 
   function prepareOcrModel() {
-    preconnectOcrModelHosts();
     void warmupCharacterOcr().catch(() => undefined);
   }
 
@@ -580,18 +579,4 @@ function scheduleHandwritingFontLoad(characterFont: StoredSettings["characterFon
   return () => {
     window.clearTimeout(timer);
   };
-}
-
-function preconnectOcrModelHosts() {
-  for (const href of ["https://bj.bcebos.com", "https://paddle-model-ecology.bj.bcebos.com"]) {
-    if (document.querySelector(`link[rel="preconnect"][href="${href}"]`)) {
-      continue;
-    }
-
-    const link = document.createElement("link");
-    link.rel = "preconnect";
-    link.href = href;
-    link.crossOrigin = "";
-    document.head.append(link);
-  }
 }

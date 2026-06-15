@@ -145,7 +145,10 @@ export function SetupPage({
                 type="button"
                 onClick={() => imageInputRef.current?.click()}
                 onFocus={onPrepareOcr}
+                onMouseEnter={onPrepareOcr}
                 onPointerDown={onPrepareOcr}
+                onPointerEnter={onPrepareOcr}
+                onTouchStart={onPrepareOcr}
               >
                 {isOcrWorking ? (
                   <Loader2 aria-hidden="true" className="spin-icon" size={20} />
