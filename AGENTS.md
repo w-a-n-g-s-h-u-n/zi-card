@@ -15,8 +15,8 @@
 - 图标使用 `lucide-react`。
 - 开关控件使用 Radix UI。
 - 拼音使用 `pinyin-pro` 生成。除非有明确原因，不要重新引入手工维护的拼音表。
-- 图片识别使用 `@paddleocr/paddleocr-js` 在浏览器本地完成，当前默认 `PP-OCRv6_tiny_det` + `PP-OCRv6_tiny_rec`。不要再引入 Tesseract 兼容逻辑。
-- OCR 初始化固定使用 WASM 后端。首页不主动初始化 OCR，用户点击或聚焦 `识别图片` 前才预热模型；模型从 ModelScope 拉取 `inference.onnx` 和 `inference.yml`，在浏览器内动态打成 PaddleOCR.js 需要的标准 tar，并优先写入 Cache Storage。
+- 图片识别使用 `@paddleocr/paddleocr-js` 在浏览器本地完成，当前默认 `PP-OCRv6_tiny_det` + `PP-OCRv6_tiny_rec`，模型 tar 放在 `public/models/paddleocr/` 随静态站点同源分发。不要再引入 Tesseract 兼容逻辑。
+- OCR 初始化固定使用 WASM 后端。首页不主动初始化 OCR，用户点击、触碰或聚焦 `识别图片` 前才预热模型；移动端优先使用 PaddleOCR.js 原生 tar 加载，依赖同源静态站点/CDN 和浏览器 HTTP 缓存，不在手机浏览器里动态打包模型。
 - 手写字形使用 `lxgw-wenkai-screen-webfont` 自托管静态字体资源，不依赖外部 CDN；字体 CSS 通过 `src/utils/handwritingFont.ts` 按需异步加载，不进入首屏全局 CSS。
 - 产物必须保持为纯静态 HTML/CSS/JS。不要添加后端、账号系统或服务端存储。
 - 远程读音当前使用免费的有道 `dictvoice` 公开接口作为优先远程 TTS；它只能读文本，不支持通过拼音指定多音字读音。
@@ -45,7 +45,7 @@
 - 上传图片识别字表必须支持多张图片批量识别，识别结果只提取汉字，按图片选择顺序去重后进入可编辑候选字表。
 - 图片识别相关详情区域默认隐藏，只展示上传按钮；只有上传图片后才展开识别状态、原图预览、识别结果和候选字表。
 - 图片识别结果必须展示原图预览供用户对比，由用户确认后才合并到当前输入字表，并继续复用现有多音字选择流程。
-- 图片识别必须在浏览器本地处理图片；PaddleOCR 模型可以按需从公开镜像/CDN 下载并由浏览器缓存，但不要把用户图片发到后端，也不要接入需要在前端暴露密钥的云 OCR。
+- 图片识别必须在浏览器本地处理图片；PaddleOCR 模型可以按需下载并由浏览器缓存，但不要把用户图片发到后端，也不要接入需要在前端暴露密钥的云 OCR。
 
 ## UI 约定
 

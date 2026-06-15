@@ -31,11 +31,11 @@
 
 ## 图片识别
 
-图片识别使用 `@paddleocr/paddleocr-js` 在浏览器本地完成，图片不会上传到服务器，也不需要云 OCR 密钥。当前模型为 `PP-OCRv6_tiny_det` 和 `PP-OCRv6_tiny_rec`，从 ModelScope 拉取 `inference.onnx` 与 `inference.yml`，再在浏览器内动态打成 PaddleOCR.js 需要的标准 tar。
+图片识别使用 `@paddleocr/paddleocr-js` 在浏览器本地完成，图片不会上传到服务器，也不需要云 OCR 密钥。当前模型为 `PP-OCRv6_tiny_det` 和 `PP-OCRv6_tiny_rec`，模型 tar 放在 `public/models/paddleocr/`，随静态站点同源分发。
 
 识别前会在本地做图片方向修正、白底、长边限制、灰度和轻微对比度增强。识别结果只提取汉字，按图片选择顺序合并并去重，然后进入可编辑候选字表；用户确认时会同时看到原图缩略图用于对比，确认后才会合并进当前字表。
 
-为兼顾首页速度和中国大陆 OCR 下载体验，首页不会主动初始化 OCR；点击或聚焦 `识别图片` 前才会开始预热。生成后的 V6 tiny tar 会优先写入 Cache Storage，后续同一浏览器可直接复用缓存；缓存不可用时退回页面生命周期内缓存。
+为兼顾首页速度和移动端稳定性，首页不会主动初始化 OCR；点击、触碰或聚焦 `识别图片` 前才会开始预热。部署到 GitHub Pages + Cloudflare 后，两个 V6 tiny tar 会由同源静态站点和 CDN 分发，并依赖浏览器 HTTP 缓存复用。
 
 ## 分享
 

@@ -1,6 +1,5 @@
 import type { OcrResult } from "@paddleocr/paddleocr-js";
 import { extractUniqueCharacters } from "../utils/text";
-import { createOcrModelAssetUrl, OCR_DETECTION_MODEL, OCR_RECOGNITION_MODEL } from "./modelAssets";
 
 export type ImageOcrFileResult = {
   chars: string[];
@@ -28,10 +27,21 @@ export type ImageOcrProgress = {
 };
 
 const IMAGE_FILE_RE = /\.(bmp|gif|jpe?g|png|tiff?|webp)$/i;
+const OCR_MODEL_BASE_PATH = "models/paddleocr/";
 const MAX_IMAGE_SIDE = 1600;
 const PREPARE_PROGRESS_START = 0.08;
 const PREPARE_PROGRESS_END = 0.36;
 const RECOGNIZE_PROGRESS = 0.72;
+
+const OCR_DETECTION_MODEL = {
+  fileName: "PP-OCRv6_tiny_det_onnx_infer.tar",
+  name: "PP-OCRv6_tiny_det",
+} as const;
+
+const OCR_RECOGNITION_MODEL = {
+  fileName: "PP-OCRv6_tiny_rec_onnx_infer.tar",
+  name: "PP-OCRv6_tiny_rec",
+} as const;
 
 type PaddleOcrModule = typeof import("@paddleocr/paddleocr-js");
 type PaddleOcrInstance = Awaited<ReturnType<PaddleOcrModule["PaddleOCR"]["create"]>>;
@@ -170,32 +180,22 @@ export function warmupCharacterOcr(): Promise<void> {
 function getPaddleOcr(): Promise<PaddleOcrInstance> {
   if (!paddleOcrPromise) {
     const promise = import("@paddleocr/paddleocr-js")
-      .then(async ({ PaddleOCR }) => {
-        const [detectionAsset, recognitionAsset] = await Promise.all([
-          createOcrModelAssetUrl(OCR_DETECTION_MODEL),
-          createOcrModelAssetUrl(OCR_RECOGNITION_MODEL),
-        ]);
-
-        try {
-          return await PaddleOCR.create({
-            textDetectionModelName: detectionAsset.modelName,
-            textDetectionModelAsset: {
-              url: detectionAsset.url,
-            },
-            textRecognitionModelName: recognitionAsset.modelName,
-            textRecognitionModelAsset: {
-              url: recognitionAsset.url,
-            },
-            ortOptions: {
-              backend: "wasm",
-              numThreads: 1,
-            },
-          });
-        } finally {
-          URL.revokeObjectURL(detectionAsset.url);
-          URL.revokeObjectURL(recognitionAsset.url);
-        }
-      })
+      .then(({ PaddleOCR }) =>
+        PaddleOCR.create({
+          textDetectionModelName: OCR_DETECTION_MODEL.name,
+          textDetectionModelAsset: {
+            url: getStaticModelUrl(OCR_DETECTION_MODEL.fileName),
+          },
+          textRecognitionModelName: OCR_RECOGNITION_MODEL.name,
+          textRecognitionModelAsset: {
+            url: getStaticModelUrl(OCR_RECOGNITION_MODEL.fileName),
+          },
+          ortOptions: {
+            backend: "wasm",
+            numThreads: 1,
+          },
+        }),
+      )
       .catch((error: unknown) => {
         paddleOcrPromise = null;
         throw new Error(`本地 OCR 初始化失败：${getErrorMessage(error)}`);
@@ -354,4 +354,8 @@ function clamp(value: number): number {
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "请手动输入字表";
+}
+
+function getStaticModelUrl(fileName: string): string {
+  return new URL(`${OCR_MODEL_BASE_PATH}${fileName}`, document.baseURI).toString();
 }
