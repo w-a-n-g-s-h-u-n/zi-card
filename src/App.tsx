@@ -66,6 +66,7 @@ export default function App() {
   const [ocrState, setOcrState] = useState<OcrUiState>(OCR_IDLE_STATE);
   const [ocrPreviewImages, setOcrPreviewImages] = useState<OcrPreviewImage[]>([]);
   const [lastOcrFiles, setLastOcrFiles] = useState<File[]>([]);
+  const [hideSharedPinyinChoices, setHideSharedPinyinChoices] = useState(false);
 
   useEffect(() => {
     const stored = readStoredData();
@@ -74,6 +75,7 @@ export default function App() {
     if (sharedDrafts.length > 0) {
       setInputText(joinCharacters(sharedDrafts.map((draft) => draft.char)));
       setSelectedPinyins(getSelectedPinyinMap(sharedDrafts));
+      setHideSharedPinyinChoices(true);
       setShareStatus("已载入分享字表");
     }
 
@@ -149,6 +151,7 @@ export default function App() {
 
   function updateInputText(value: string) {
     const nextChars = new Set(getCharacterPreview(value));
+    setHideSharedPinyinChoices(false);
     setInputText(value);
     setSelectedPinyins((current) =>
       Object.fromEntries(Object.entries(current).filter(([char]) => nextChars.has(char))),
@@ -156,6 +159,7 @@ export default function App() {
   }
 
   function updateSelectedPinyin(char: string, pinyin: string) {
+    setHideSharedPinyinChoices(false);
     setSelectedPinyins((current) => ({
       ...current,
       [char]: pinyin,
@@ -299,12 +303,14 @@ export default function App() {
   }
 
   function useRecent(drafts: CharacterDraft[]) {
+    setHideSharedPinyinChoices(false);
     setInputText(joinCharacters(drafts.map((draft) => draft.char)));
     setSelectedPinyins(getSelectedPinyinMap(drafts));
     setEditingRecentKey(null);
   }
 
   function editRecent(drafts: CharacterDraft[]) {
+    setHideSharedPinyinChoices(false);
     setInputText(joinCharacters(drafts.map((draft) => draft.char)));
     setSelectedPinyins(getSelectedPinyinMap(drafts));
     setEditingRecentKey(getRecentListKey(drafts));
@@ -481,6 +487,7 @@ export default function App() {
           ocrPreviewImages={ocrPreviewImages}
           ocrState={ocrState}
           shareStatus={shareStatus}
+          showPinyinChoices={!hideSharedPinyinChoices}
           onImageFilesSelected={recognizeImages}
           onInputChange={updateInputText}
           editingRecentKey={editingRecentKey}

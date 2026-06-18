@@ -42,6 +42,7 @@ type SetupPageProps = {
   settings: StoredSettings;
   recentLists: CharacterDraft[][];
   previewItems: CharacterPreviewItem[];
+  showPinyinChoices: boolean;
   onInputChange: (value: string) => void;
   onPinyinChange: (char: string, pinyin: string) => void;
   onSettingsChange: (settings: StoredSettings) => void;
@@ -68,6 +69,7 @@ export function SetupPage({
   settings,
   recentLists,
   previewItems,
+  showPinyinChoices,
   onInputChange,
   onPinyinChange,
   onSettingsChange,
@@ -258,7 +260,7 @@ export function SetupPage({
                       <span className="character-chip-pinyin">{item.selectedPinyin}</span>
                       <span className="character-chip-char">{item.char}</span>
                     </div>
-                    {isPolyphonic ? (
+                    {showPinyinChoices && isPolyphonic ? (
                       <div className="pinyin-choice-row" aria-label={`${item.char} 的读音`}>
                         {item.pinyinOptions.map((pinyin) => (
                           <button
