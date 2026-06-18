@@ -1,39 +1,8 @@
-import {
-  BookOpenText,
-  Brush,
-  CheckCircle2,
-  Dice5,
-  Eye,
-  ImageUp,
-  ListRestart,
-  Loader2,
-  Pencil,
-  Play,
-  RotateCcw,
-  Share2,
-  Type,
-  Trash2,
-  Volume2,
-} from "lucide-react";
-import type { ChangeEvent } from "react";
-import { useRef } from "react";
-import type { LucideIcon } from "lucide-react";
-import { MODE_CONFIGS, MODE_ICONS } from "../modes";
 import type { CharacterDraft, CharacterPreviewItem } from "../types/character";
-import type { PracticeMode } from "../types/mode";
-import { Button } from "../ui/Button";
-import { SegmentedControl } from "../ui/SegmentedControl";
-import { Toggle } from "../ui/Toggle";
-import { extractUniqueCharacters, joinCharacters } from "../utils/text";
-import type { CharacterFont, StoredSettings } from "../storage/storageTypes";
-import { getRecentListKey } from "../storage/localStorage";
+import type { StoredSettings } from "../storage/storageTypes";
 import type { OcrPreviewImage, OcrUiState } from "../types/ocr";
-
-const CHARACTER_FONT_OPTIONS: Array<{ value: CharacterFont; label: string; icon: LucideIcon }> = [
-  { value: "sans", label: "标准", icon: Type },
-  { value: "kai", label: "楷体", icon: BookOpenText },
-  { value: "handwriting", label: "手写", icon: Brush },
-];
+import { CharacterInputPanel } from "./setup/CharacterInputPanel";
+import { SettingsPanel } from "./setup/SettingsPanel";
 
 type SetupPageProps = {
   inputText: string;
@@ -88,31 +57,6 @@ export function SetupPage({
   onShare,
   onStart,
 }: SetupPageProps) {
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const canStart = previewItems.length > 0;
-  const isOcrWorking = ocrState.status === "loading" || ocrState.status === "recognizing";
-  const showOcrDetails = ocrState.status !== "idle" || ocrPreviewImages.length > 0;
-  const hasOcrResult = ocrState.status === "pending";
-  const ocrCandidateCount = extractUniqueCharacters(ocrState.candidateText).length;
-  const canConfirmOcr = ocrCandidateCount > 0;
-
-  function updateSettings(patch: Partial<StoredSettings>) {
-    onSettingsChange({
-      ...settings,
-      ...patch,
-    });
-  }
-
-  function handleImageInputChange(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []);
-
-    if (files.length > 0) {
-      onImageFilesSelected(files);
-    }
-
-    event.target.value = "";
-  }
-
   return (
     <main className="setup-page">
       <section className="setup-hero">
@@ -126,277 +70,36 @@ export function SetupPage({
       </section>
 
       <section className="setup-grid">
-        <div className="input-panel">
-          <label className="field-label" htmlFor="character-input">
-            {editingRecentKey ? "编辑历史字表" : "本次字表"}
-          </label>
-          <textarea
-            className="character-input"
-            id="character-input"
-            inputMode="text"
-            placeholder="日 月 山 水 火"
-            value={inputText}
-            onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onInputChange(event.target.value)}
-          />
+        <CharacterInputPanel
+          editingRecentKey={editingRecentKey}
+          inputText={inputText}
+          ocrPreviewImages={ocrPreviewImages}
+          ocrState={ocrState}
+          previewItems={previewItems}
+          shareStatus={shareStatus}
+          showPinyinChoices={showPinyinChoices}
+          onClearOcr={onClearOcr}
+          onConfirmOcr={onConfirmOcr}
+          onImageFilesSelected={onImageFilesSelected}
+          onInputChange={onInputChange}
+          onOcrCandidateChange={onOcrCandidateChange}
+          onPinyinChange={onPinyinChange}
+          onPrepareOcr={onPrepareOcr}
+          onRetryOcr={onRetryOcr}
+          onShare={onShare}
+          onStart={onStart}
+        />
 
-          <div className="image-ocr-panel" data-expanded={showOcrDetails} data-status={ocrState.status}>
-            <div className="image-ocr-topline">
-              <button
-                className="image-ocr-button"
-                disabled={isOcrWorking}
-                type="button"
-                onClick={() => imageInputRef.current?.click()}
-                onFocus={onPrepareOcr}
-                onMouseEnter={onPrepareOcr}
-                onPointerDown={onPrepareOcr}
-                onPointerEnter={onPrepareOcr}
-                onTouchStart={onPrepareOcr}
-              >
-                {isOcrWorking ? (
-                  <Loader2 aria-hidden="true" className="spin-icon" size={20} />
-                ) : (
-                  <ImageUp aria-hidden="true" size={20} />
-                )}
-                <span>{ocrState.status === "loading" ? "加载模型" : isOcrWorking ? "识别中" : "识别图片"}</span>
-              </button>
-              <input
-                ref={imageInputRef}
-                className="image-ocr-input"
-                type="file"
-                accept="image/*"
-                multiple
-                disabled={isOcrWorking}
-                onChange={handleImageInputChange}
-              />
-            </div>
-
-            {showOcrDetails ? (
-              <div className="image-ocr-details">
-                <div className="image-ocr-message" aria-live="polite">
-                  {ocrState.message}
-                </div>
-
-                {ocrPreviewImages.length > 0 ? (
-                  <div className="image-ocr-preview-list" aria-label="待识别图片">
-                    {ocrPreviewImages.map((image) => (
-                      <figure className="image-ocr-preview" key={image.id}>
-                        <img alt={image.name} src={image.url} />
-                        <figcaption>{image.name}</figcaption>
-                      </figure>
-                    ))}
-                  </div>
-                ) : null}
-
-                {isOcrWorking ? (
-                  <div className="image-ocr-progress" aria-label="识别进度">
-                    <div style={{ width: `${Math.round(ocrState.progress * 100)}%` }} />
-                  </div>
-                ) : null}
-
-                {ocrState.results.length > 0 ? (
-                  <div className="image-ocr-results" aria-label="图片识别结果">
-                    {ocrState.results.map((result, index) => (
-                      <div
-                        className="image-ocr-result"
-                        data-error={Boolean(result.error)}
-                        key={`${result.fileName}-${index}`}
-                      >
-                        <span>{result.fileName}</span>
-                        <strong>{result.error ? "失败" : `${result.charCount} 字`}</strong>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-
-                {hasOcrResult ? (
-                  <div className="image-ocr-candidate">
-                    <div className="image-ocr-candidate-heading">
-                      <span>候选字表</span>
-                      <strong>{ocrCandidateCount > 0 ? `${ocrCandidateCount} 字` : "空"}</strong>
-                    </div>
-                    <textarea
-                      aria-label="图片识别候选字表"
-                      className="image-ocr-candidate-input"
-                      inputMode="text"
-                      placeholder="可编辑后确认加入"
-                      value={ocrState.candidateText}
-                      onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onOcrCandidateChange(event.target.value)}
-                    />
-                    <div className="image-ocr-actions">
-                      <button
-                        className="image-ocr-action image-ocr-action--confirm"
-                        disabled={!canConfirmOcr}
-                        type="button"
-                        onClick={onConfirmOcr}
-                      >
-                        <CheckCircle2 aria-hidden="true" size={18} />
-                        <span>确认加入</span>
-                      </button>
-                      <button className="image-ocr-action" disabled={isOcrWorking} type="button" onClick={onRetryOcr}>
-                        <RotateCcw aria-hidden="true" size={18} />
-                        <span>重新识别</span>
-                      </button>
-                      <button className="image-ocr-action image-ocr-action--clear" type="button" onClick={onClearOcr}>
-                        <Trash2 aria-hidden="true" size={18} />
-                        <span>清空结果</span>
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="preview-row" aria-label="字表预览">
-            {previewItems.length === 0 ? (
-              <span className="empty-preview">等待录入</span>
-            ) : (
-              previewItems.map((item) => {
-                const isPolyphonic = item.pinyinOptions.length > 1;
-
-                return (
-                  <div className="character-chip" data-polyphonic={isPolyphonic} key={item.char}>
-                    <div className="character-chip-main">
-                      <span className="character-chip-pinyin">{item.selectedPinyin}</span>
-                      <span className="character-chip-char">{item.char}</span>
-                    </div>
-                    {showPinyinChoices && isPolyphonic ? (
-                      <div className="pinyin-choice-row" aria-label={`${item.char} 的读音`}>
-                        {item.pinyinOptions.map((pinyin) => (
-                          <button
-                            className="pinyin-choice"
-                            data-selected={item.selectedPinyin === pinyin}
-                            key={pinyin}
-                            type="button"
-                            onClick={() => onPinyinChange(item.char, pinyin)}
-                          >
-                            {pinyin}
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          <div className="input-actions">
-            <Button icon={Play} size="large" disabled={!canStart} onClick={onStart}>
-              开始
-            </Button>
-            <Button icon={Share2} variant="quiet" size="large" disabled={!canStart} onClick={onShare}>
-              分享
-            </Button>
-          </div>
-          <div className="share-status" aria-live="polite">
-            {shareStatus ?? ""}
-          </div>
-        </div>
-
-        <aside className="settings-panel">
-          <SegmentedControl<PracticeMode>
-            label="练习模式"
-            value={settings.mode}
-            onChange={(mode) => updateSettings({ mode })}
-            options={MODE_CONFIGS.map((config) => ({
-              value: config.id,
-              label: config.shortLabel,
-              icon: MODE_ICONS[config.id],
-            }))}
-          />
-
-          <div className="toggle-group">
-            <Toggle
-              checked={settings.randomOrder}
-              icon={<Dice5 aria-hidden="true" size={21} />}
-              label="随机"
-              onCheckedChange={(randomOrder) => updateSettings({ randomOrder })}
-            />
-            <Toggle
-              checked={settings.showPinyin}
-              icon={<Eye aria-hidden="true" size={21} />}
-              label="拼音"
-              onCheckedChange={(showPinyin) => updateSettings({ showPinyin })}
-            />
-            <Toggle
-              checked={settings.soundEnabled}
-              icon={<Volume2 aria-hidden="true" size={21} />}
-              label="音效"
-              onCheckedChange={(soundEnabled) => updateSettings({ soundEnabled })}
-            />
-          </div>
-
-          <SegmentedControl
-            label="汉字字形"
-            value={settings.characterFont}
-            onChange={(characterFont) => updateSettings({ characterFont })}
-            options={CHARACTER_FONT_OPTIONS}
-          />
-
-          <div className="recent-panel">
-            <div className="section-heading">
-              <ListRestart aria-hidden="true" size={20} />
-              <span>最近字表</span>
-            </div>
-            {recentLists.length === 0 ? (
-              <div className="empty-recent">
-                <BookOpenText aria-hidden="true" size={22} />
-                <span>暂无记录</span>
-              </div>
-            ) : (
-              <div className="recent-list">
-                {recentLists.map((drafts) => {
-                  const key = getRecentListKey(drafts);
-                  const text = joinCharacters(drafts.map((draft) => draft.char));
-
-                  return (
-                    <div className="recent-item" data-editing={editingRecentKey === key} key={key}>
-                      <button
-                        className="recent-main-action"
-                        title="使用"
-                        type="button"
-                        onClick={() => onUseRecent(drafts)}
-                      >
-                        <CheckCircle2 aria-hidden="true" size={18} />
-                        <span>{text}</span>
-                      </button>
-                      <div className="recent-row-actions">
-                        <button
-                          aria-label={`编辑字表 ${text}`}
-                          className="recent-icon-action"
-                          title="编辑"
-                          type="button"
-                          onClick={() => onEditRecent(drafts)}
-                        >
-                          <Pencil aria-hidden="true" size={18} />
-                        </button>
-                        <button
-                          aria-label={`分享字表 ${text}`}
-                          className="recent-icon-action"
-                          title="分享"
-                          type="button"
-                          onClick={() => onShareRecent(drafts)}
-                        >
-                          <Share2 aria-hidden="true" size={18} />
-                        </button>
-                        <button
-                          aria-label={`删除字表 ${text}`}
-                          className="recent-icon-action recent-icon-action--danger"
-                          title="删除"
-                          type="button"
-                          onClick={() => onDeleteRecent(drafts)}
-                        >
-                          <Trash2 aria-hidden="true" size={18} />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </aside>
+        <SettingsPanel
+          editingRecentKey={editingRecentKey}
+          recentLists={recentLists}
+          settings={settings}
+          onDeleteRecent={onDeleteRecent}
+          onEditRecent={onEditRecent}
+          onSettingsChange={onSettingsChange}
+          onShareRecent={onShareRecent}
+          onUseRecent={onUseRecent}
+        />
       </section>
     </main>
   );
