@@ -1,7 +1,11 @@
 import type { CharacterDraft } from "../types/character";
+import { getCharacterListIdentity } from "../core/resultHistory";
+import type { PracticeResultRecord } from "../types/result";
 import type { StoredData, StoredSettings } from "./storageTypes";
 
 const STORAGE_KEY = "character-practice:v2";
+const MAX_RECENT_LISTS = 6;
+const MAX_RESULT_HISTORY_PER_LIST = 20;
 
 export const DEFAULT_SETTINGS: StoredSettings = {
   characterFont: "handwriting",
@@ -14,6 +18,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
 const DEFAULT_DATA: StoredData = {
   version: 2,
   recentLists: [],
+  resultHistoriesByListIdentity: {},
   settings: DEFAULT_SETTINGS,
 };
 
@@ -33,7 +38,8 @@ export function readStoredData(): StoredData {
 
     return {
       version: 2,
-      recentLists: Array.isArray(parsed.recentLists) ? parsed.recentLists.slice(0, 6) : [],
+      recentLists: normalizeRecentLists(parsed.recentLists),
+      resultHistoriesByListIdentity: normalizeResultHistories(parsed.resultHistoriesByListIdentity),
       settings: {
         ...DEFAULT_SETTINGS,
         ...(parsed.settings ?? {}),
@@ -58,30 +64,209 @@ export function saveSettings(settings: StoredSettings): void {
 
 export function saveRecentList(drafts: CharacterDraft[], replaceKey?: string): void {
   const current = readStoredData();
-  const key = getRecentListKey(drafts);
+  const key = getCharacterListIdentity(drafts);
   const recentLists = [
     drafts,
     ...current.recentLists.filter((item) => {
-      const itemKey = getRecentListKey(item);
+      const itemKey = getCharacterListIdentity(item);
       return itemKey !== key && itemKey !== replaceKey;
     }),
-  ].slice(0, 6);
+  ].slice(0, MAX_RECENT_LISTS);
+  const resultHistoriesByListIdentity = { ...current.resultHistoriesByListIdentity };
+
+  if (replaceKey && replaceKey !== key) {
+    delete resultHistoriesByListIdentity[replaceKey];
+  }
 
   writeStoredData({
     ...current,
     recentLists,
+    resultHistoriesByListIdentity: pruneHistoriesToRecentLists(resultHistoriesByListIdentity, recentLists),
   });
 }
 
 export function deleteRecentList(key: string): void {
   const current = readStoredData();
+  const resultHistoriesByListIdentity = { ...current.resultHistoriesByListIdentity };
+  delete resultHistoriesByListIdentity[key];
 
   writeStoredData({
     ...current,
-    recentLists: current.recentLists.filter((item) => getRecentListKey(item) !== key),
+    recentLists: current.recentLists.filter((item) => getCharacterListIdentity(item) !== key),
+    resultHistoriesByListIdentity,
   });
 }
 
 export function getRecentListKey(drafts: CharacterDraft[]): string {
-  return drafts.map((draft) => `${draft.char}:${draft.pinyin ?? ""}`).join("|");
+  return getCharacterListIdentity(drafts);
+}
+
+export function upsertResultHistory(record: PracticeResultRecord): void {
+  const current = readStoredData();
+
+  writeStoredData({
+    ...current,
+    resultHistoriesByListIdentity: upsertRecordIntoHistories(current.resultHistoriesByListIdentity, record),
+  });
+}
+
+export function importResultHistory(record: PracticeResultRecord): void {
+  const current = readStoredData();
+  const normalizedRecord = {
+    ...record,
+    sourceListIdentity: getCharacterListIdentity(record.sourceDrafts),
+  };
+  const hasRecentList = current.recentLists.some(
+    (drafts) => getCharacterListIdentity(drafts) === normalizedRecord.sourceListIdentity,
+  );
+  const recentLists = hasRecentList
+    ? current.recentLists
+    : [normalizedRecord.sourceDrafts, ...current.recentLists].slice(0, MAX_RECENT_LISTS);
+
+  writeStoredData({
+    ...current,
+    recentLists,
+    resultHistoriesByListIdentity: pruneHistoriesToRecentLists(
+      upsertRecordIntoHistories(current.resultHistoriesByListIdentity, normalizedRecord),
+      recentLists,
+    ),
+  });
+}
+
+export function deleteResultHistoryRecord(sourceListIdentity: string, recordId: string): void {
+  const current = readStoredData();
+  const records = current.resultHistoriesByListIdentity[sourceListIdentity] ?? [];
+
+  writeStoredData({
+    ...current,
+    resultHistoriesByListIdentity: {
+      ...current.resultHistoriesByListIdentity,
+      [sourceListIdentity]: records.filter((record) => record.id !== recordId),
+    },
+  });
+}
+
+function upsertRecordIntoHistories(
+  histories: Record<string, PracticeResultRecord[]>,
+  record: PracticeResultRecord,
+): Record<string, PracticeResultRecord[]> {
+  const records = histories[record.sourceListIdentity] ?? [];
+  const existingIndex = records.findIndex((item) => item.id === record.id);
+  const nextRecord =
+    existingIndex >= 0 && record.id.startsWith("shared-")
+      ? records[existingIndex]
+      : existingIndex >= 0 && records[existingIndex].updatedAt > record.updatedAt
+        ? records[existingIndex]
+        : record;
+  const nextRecords =
+    existingIndex >= 0
+      ? records.map((item, index) => (index === existingIndex ? nextRecord : item))
+      : [nextRecord, ...records];
+
+  return {
+    ...histories,
+    [record.sourceListIdentity]: nextRecords
+      .sort((left, right) => right.updatedAt - left.updatedAt)
+      .slice(0, MAX_RESULT_HISTORY_PER_LIST),
+  };
+}
+
+function normalizeRecentLists(value: unknown): CharacterDraft[][] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const recentLists: CharacterDraft[][] = [];
+  const seen = new Set<string>();
+
+  for (const item of value) {
+    if (!Array.isArray(item)) {
+      continue;
+    }
+
+    const drafts = item.filter(isCharacterDraft);
+    const identity = getCharacterListIdentity(drafts);
+
+    if (drafts.length === 0 || seen.has(identity)) {
+      continue;
+    }
+
+    seen.add(identity);
+    recentLists.push(drafts);
+
+    if (recentLists.length >= MAX_RECENT_LISTS) {
+      break;
+    }
+  }
+
+  return recentLists;
+}
+
+function normalizeResultHistories(value: unknown): Record<string, PracticeResultRecord[]> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  const result: Record<string, PracticeResultRecord[]> = {};
+
+  for (const [identity, records] of Object.entries(value)) {
+    if (!Array.isArray(records)) {
+      continue;
+    }
+
+    const normalizedRecords = records.filter(isPracticeResultRecord);
+
+    if (normalizedRecords.length === 0) {
+      continue;
+    }
+
+    result[identity] = normalizedRecords
+      .sort((left, right) => right.updatedAt - left.updatedAt)
+      .slice(0, MAX_RESULT_HISTORY_PER_LIST);
+  }
+
+  return result;
+}
+
+function pruneHistoriesToRecentLists(
+  histories: Record<string, PracticeResultRecord[]>,
+  recentLists: CharacterDraft[][],
+): Record<string, PracticeResultRecord[]> {
+  const identities = new Set(recentLists.map((drafts) => getCharacterListIdentity(drafts)));
+
+  return Object.fromEntries(Object.entries(histories).filter(([identity]) => identities.has(identity)));
+}
+
+function isCharacterDraft(value: unknown): value is CharacterDraft {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const draft = value as Partial<CharacterDraft>;
+  return typeof draft.char === "string" && draft.char.length > 0 && (!draft.pinyin || typeof draft.pinyin === "string");
+}
+
+function isPracticeResultRecord(value: unknown): value is PracticeResultRecord {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const record = value as Partial<PracticeResultRecord>;
+
+  return (
+    typeof record.id === "string" &&
+    typeof record.sessionId === "string" &&
+    typeof record.sourceListIdentity === "string" &&
+    Array.isArray(record.sourceDrafts) &&
+    record.sourceDrafts.every(isCharacterDraft) &&
+    Array.isArray(record.practiceDrafts) &&
+    record.practiceDrafts.every(isCharacterDraft) &&
+    (record.mode === "flashcard" || record.mode === "find-character") &&
+    (record.round === "main" || record.round === "review") &&
+    typeof record.createdAt === "number" &&
+    typeof record.updatedAt === "number" &&
+    Boolean(record.results) &&
+    typeof record.results === "object" &&
+    !Array.isArray(record.results)
+  );
 }

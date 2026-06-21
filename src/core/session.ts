@@ -1,20 +1,28 @@
-import type { CharacterItem } from "../types/character";
+import type { CharacterDraft, CharacterItem } from "../types/character";
 import type { PracticeMode } from "../types/mode";
 import type { CharacterAssessment, PracticeResult, PracticeSession } from "../types/session";
+import { createDraftsFromItems, getCharacterListIdentity } from "./resultHistory";
 import { orderItems } from "./shuffle";
 
 type CreateSessionInput = {
   sourceText: string;
+  sourceDrafts: CharacterDraft[];
   items: CharacterItem[];
   mode: PracticeMode;
   randomOrder: boolean;
   round?: PracticeSession["round"];
+  sourceListIdentity?: string;
 };
 
 export function createPracticeSession(input: CreateSessionInput): PracticeSession {
+  const sourceListIdentity = input.sourceListIdentity ?? getCharacterListIdentity(input.sourceDrafts);
+
   return {
     id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`,
     sourceText: input.sourceText,
+    sourceListIdentity,
+    sourceDrafts: input.sourceDrafts,
+    practiceDrafts: createDraftsFromItems(input.items),
     items: input.items,
     queue: orderItems(input.items, input.randomOrder),
     currentIndex: 0,
@@ -104,6 +112,8 @@ export function createReviewSession(
 ): PracticeSession {
   return createPracticeSession({
     sourceText: source.sourceText,
+    sourceDrafts: source.sourceDrafts,
+    sourceListIdentity: source.sourceListIdentity,
     items,
     mode,
     randomOrder,

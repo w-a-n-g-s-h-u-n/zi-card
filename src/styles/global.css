@@ -113,7 +113,9 @@ button {
 }
 
 .setup-page,
-.result-page {
+.result-page,
+.result-history-page,
+.result-detail-page {
   width: min(100%, 1080px);
   min-height: calc(100dvh - 34px);
   margin: 0 auto;
@@ -665,10 +667,23 @@ h2 {
   cursor: pointer;
 }
 
-.recent-main-action > span {
+.recent-main-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.recent-main-copy > span,
+.recent-main-copy > small {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.recent-main-copy > small {
+  color: var(--color-muted);
+  font-size: 0.74rem;
+  font-weight: 760;
 }
 
 .recent-row-actions {
@@ -1111,7 +1126,8 @@ h2 {
   color: #9a3330;
 }
 
-.result-page {
+.result-page,
+.result-detail-page {
   max-width: 1040px;
   align-content: start;
   grid-template-areas:
@@ -1120,6 +1136,23 @@ h2 {
     "actions"
     "review"
     "known";
+  gap: 12px;
+}
+
+.result-detail-page {
+  grid-template-areas:
+    "summary"
+    "stats"
+    "actions"
+    "review"
+    "known"
+    "source"
+    "practice";
+}
+
+.result-history-page {
+  max-width: 1040px;
+  align-content: start;
   gap: 12px;
 }
 
@@ -1262,6 +1295,14 @@ h2 {
   grid-area: known;
 }
 
+.detail-source-panel {
+  grid-area: source;
+}
+
+.detail-practice-panel {
+  grid-area: practice;
+}
+
 .result-panel-header {
   display: flex;
   align-items: center;
@@ -1356,19 +1397,147 @@ h2 {
   color: var(--color-primary-strong);
 }
 
+.result-char-chip--with-pinyin {
+  min-height: 58px;
+  gap: 4px;
+}
+
+.result-char-chip--with-pinyin small {
+  min-height: 14px;
+  color: currentColor;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.result-char-chip--with-pinyin > span {
+  font-family: var(--font-character);
+  font-size: 1.3rem;
+  font-weight: var(--font-character-weight);
+  line-height: 1;
+}
+
+.history-hero,
+.history-empty,
+.history-record {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow-soft);
+}
+
+.history-hero {
+  min-height: 104px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+}
+
+.history-source {
+  margin-top: 6px;
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 0.92rem;
+  font-weight: 720;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-empty {
+  min-height: 160px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  color: var(--color-muted);
+  font-weight: 820;
+}
+
+.history-list {
+  display: grid;
+  gap: 10px;
+}
+
+.history-record {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.history-record-main {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.history-record-date {
+  color: var(--color-text);
+  font-weight: 900;
+}
+
+.history-record-meta {
+  margin-top: 4px;
+  color: var(--color-muted);
+  font-size: 0.86rem;
+  font-weight: 740;
+}
+
+.history-record-rate {
+  min-width: 66px;
+  min-height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--color-primary-soft);
+  color: var(--color-primary-strong);
+  font-size: 1.2rem;
+  font-weight: 950;
+}
+
+.history-record-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.history-record-stats .result-badge {
+  min-height: 62px;
+  padding: 8px;
+}
+
+.history-record-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
 @media (min-width: 760px) {
   .setup-grid {
     grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
     align-items: start;
   }
 
-  .result-page {
+  .result-page,
+  .result-detail-page {
     grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
     grid-template-areas:
       "summary stats"
       "actions review"
       ". known";
     align-items: start;
+  }
+
+  .result-detail-page {
+    grid-template-areas:
+      "summary stats"
+      "actions review"
+      "source known"
+      "practice known";
   }
 
   .result-summary {
@@ -1412,9 +1581,19 @@ h2 {
   }
 
   .setup-page,
-  .result-page {
+  .result-page,
+  .result-history-page,
+  .result-detail-page {
     align-content: start;
     min-height: calc(100dvh - 26px);
+  }
+
+  .history-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .history-hero .ui-button {
+    width: 100%;
   }
 
   .result-grid {
@@ -1503,7 +1682,9 @@ h2 {
     min-height: 52px;
   }
 
-  .result-page {
+  .result-page,
+  .result-history-page,
+  .result-detail-page {
     min-height: calc(100dvh - 16px);
     gap: 8px;
   }

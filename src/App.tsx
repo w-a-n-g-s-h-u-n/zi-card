@@ -5,9 +5,18 @@ import {
   getCharacterPreview,
   getSelectedPinyinMap,
 } from "./core/characters";
+import {
+  createPracticeResultRecord,
+  getCharacterListIdentity,
+} from "./core/resultHistory";
 import { getReviewItems } from "./core/review";
 import { getSessionStats } from "./core/scoring";
-import { createSharedCharactersData, getSharedCharacterDraftsFromUrl } from "./core/share";
+import {
+  createSharedCharactersData,
+  createSharedResultData,
+  getSharedCharacterDraftsFromUrl,
+  getSharedResultRecordFromUrl,
+} from "./core/share";
 import {
   createPracticeSession,
   createReviewSession,
@@ -18,18 +27,24 @@ import {
   recordAttempt,
 } from "./core/session";
 import { PracticePage } from "./pages/PracticePage";
+import { ResultDetailPage } from "./pages/ResultDetailPage";
+import { ResultHistoryPage } from "./pages/ResultHistoryPage";
 import { ResultPage } from "./pages/ResultPage";
 import { SetupPage } from "./pages/SetupPage";
 import {
   DEFAULT_SETTINGS,
+  deleteResultHistoryRecord,
   deleteRecentList,
   getRecentListKey,
+  importResultHistory,
   readStoredData,
   saveRecentList,
   saveSettings,
+  upsertResultHistory,
 } from "./storage/localStorage";
 import type { StoredSettings } from "./storage/storageTypes";
 import type { CharacterDraft } from "./types/character";
+import type { PracticeResultRecord } from "./types/result";
 import type { PracticeSession } from "./types/session";
 import { playTone } from "./speech/soundEffects";
 import { prepareSpeechSynthesis, speakCharacter } from "./speech/speechSynthesis";
@@ -40,7 +55,7 @@ import { extractUniqueCharacters, joinCharacters } from "./utils/text";
 import { recognizeCharacterImages, warmupCharacterOcr } from "./ocr/imageOcr";
 import type { OcrPreviewImage, OcrUiState } from "./types/ocr";
 
-type PageState = "setup" | "practice" | "result";
+type PageState = "setup" | "practice" | "result" | "resultHistory" | "resultDetail";
 
 const OCR_IDLE_STATE: OcrUiState = {
   candidateText: "",
@@ -59,28 +74,46 @@ export default function App() {
   const [selectedPinyins, setSelectedPinyins] = useState<Record<string, string>>({});
   const [settings, setSettings] = useState<StoredSettings>(DEFAULT_SETTINGS);
   const [recentLists, setRecentLists] = useState<CharacterDraft[][]>([]);
+  const [resultHistoriesByListIdentity, setResultHistoriesByListIdentity] = useState<
+    Record<string, PracticeResultRecord[]>
+  >({});
   const [editingRecentKey, setEditingRecentKey] = useState<string | null>(null);
   const [shareStatus, setShareStatus] = useState<string | null>(null);
   const [resultStatus, setResultStatus] = useState<string | null>(null);
   const [session, setSession] = useState<PracticeSession | null>(null);
+  const [activeListIdentity, setActiveListIdentity] = useState<string | null>(null);
+  const [activeResultRecordId, setActiveResultRecordId] = useState<string | null>(null);
   const [ocrState, setOcrState] = useState<OcrUiState>(OCR_IDLE_STATE);
   const [ocrPreviewImages, setOcrPreviewImages] = useState<OcrPreviewImage[]>([]);
   const [lastOcrFiles, setLastOcrFiles] = useState<File[]>([]);
   const [hideSharedPinyinChoices, setHideSharedPinyinChoices] = useState(false);
 
   useEffect(() => {
-    const stored = readStoredData();
-    const sharedDrafts = getSharedCharacterDraftsFromUrl(window.location.href);
+    let stored = readStoredData();
+    const sharedResultRecord = getSharedResultRecordFromUrl(window.location.href);
 
-    if (sharedDrafts.length > 0) {
-      setInputText(joinCharacters(sharedDrafts.map((draft) => draft.char)));
-      setSelectedPinyins(getSelectedPinyinMap(sharedDrafts));
-      setHideSharedPinyinChoices(true);
-      setShareStatus("已载入分享字表");
+    if (sharedResultRecord) {
+      const importedListIdentity = getCharacterListIdentity(sharedResultRecord.sourceDrafts);
+      importResultHistory(sharedResultRecord);
+      stored = readStoredData();
+      setActiveListIdentity(importedListIdentity);
+      setActiveResultRecordId(sharedResultRecord.id);
+      setPage("resultDetail");
+      setResultStatus("已导入识字结果");
+    } else {
+      const sharedDrafts = getSharedCharacterDraftsFromUrl(window.location.href);
+
+      if (sharedDrafts.length > 0) {
+        setInputText(joinCharacters(sharedDrafts.map((draft) => draft.char)));
+        setSelectedPinyins(getSelectedPinyinMap(sharedDrafts));
+        setHideSharedPinyinChoices(true);
+        setShareStatus("已载入分享字表");
+      }
     }
 
     setSettings(stored.settings);
     setRecentLists(stored.recentLists);
+    setResultHistoriesByListIdentity(stored.resultHistoriesByListIdentity);
     prepareSpeechSynthesis();
     const cancelFontLoad = scheduleHandwritingFontLoad(stored.settings.characterFont);
 
@@ -139,6 +172,17 @@ export default function App() {
   );
 
   const stats = useMemo(() => (session ? getSessionStats(session) : null), [session]);
+  const activeHistoryRecords = activeListIdentity
+    ? (resultHistoriesByListIdentity[activeListIdentity] ?? [])
+    : [];
+  const activeResultRecord =
+    activeHistoryRecords.find((record) => record.id === activeResultRecordId) ?? null;
+  const activeRecentDrafts =
+    activeListIdentity && activeResultRecord
+      ? activeResultRecord.sourceDrafts
+      : activeListIdentity
+        ? (recentLists.find((drafts) => getCharacterListIdentity(drafts) === activeListIdentity) ?? [])
+        : [];
 
   function updateSettings(nextSettings: StoredSettings) {
     setSettings(nextSettings);
@@ -147,6 +191,12 @@ export default function App() {
     if (nextSettings.characterFont === "handwriting") {
       scheduleHandwritingFontLoad(nextSettings.characterFont);
     }
+  }
+
+  function refreshStoredState() {
+    const stored = readStoredData();
+    setRecentLists(stored.recentLists);
+    setResultHistoriesByListIdentity(stored.resultHistoriesByListIdentity);
   }
 
   function updateInputText(value: string) {
@@ -280,7 +330,11 @@ export default function App() {
   }
 
   function startPractice() {
-    const items = createCharacterItemsFromDrafts(previewDrafts);
+    startPracticeFromDrafts(previewDrafts, editingRecentKey ?? undefined);
+  }
+
+  function startPracticeFromDrafts(drafts: CharacterDraft[], replaceKey?: string) {
+    const items = createCharacterItemsFromDrafts(drafts);
 
     if (items.length === 0) {
       return;
@@ -288,17 +342,19 @@ export default function App() {
 
     prepareSpeechSynthesis();
     const chars = items.map((item) => item.char);
-    saveRecentList(previewDrafts, editingRecentKey ?? undefined);
-    setRecentLists(readStoredData().recentLists);
+    saveRecentList(drafts, replaceKey);
+    refreshStoredState();
     setEditingRecentKey(null);
     setSession(
       createPracticeSession({
         sourceText: joinCharacters(chars),
+        sourceDrafts: drafts,
         items,
         mode: settings.mode,
         randomOrder: settings.randomOrder,
       }),
     );
+    setResultStatus(null);
     setPage("practice");
   }
 
@@ -319,11 +375,17 @@ export default function App() {
   function removeRecent(drafts: CharacterDraft[]) {
     const key = getRecentListKey(drafts);
     deleteRecentList(key);
-    setRecentLists(readStoredData().recentLists);
+    refreshStoredState();
 
     if (editingRecentKey === key) {
       setEditingRecentKey(null);
       setInputText("");
+    }
+
+    if (activeListIdentity === key) {
+      setActiveListIdentity(null);
+      setActiveResultRecordId(null);
+      setPage("setup");
     }
   }
 
@@ -331,8 +393,18 @@ export default function App() {
     setSession(nextSession);
 
     if (isSessionComplete(nextSession)) {
+      saveSessionResult(nextSession);
       setPage("result");
     }
+  }
+
+  function saveSessionResult(nextSession: PracticeSession): PracticeResultRecord {
+    const record = createPracticeResultRecord(nextSession);
+    upsertResultHistory(record);
+    refreshStoredState();
+    setActiveListIdentity(record.sourceListIdentity);
+    setActiveResultRecordId(record.id);
+    return record;
   }
 
   function markKnown() {
@@ -389,9 +461,14 @@ export default function App() {
     setPage("setup");
     setSession(null);
     setResultStatus(null);
+    setActiveListIdentity(null);
+    setActiveResultRecordId(null);
   }
 
   function finishSession() {
+    if (session) {
+      saveSessionResult(session);
+    }
     setPage("result");
   }
 
@@ -416,16 +493,33 @@ export default function App() {
     setPage("practice");
   }
 
-  async function copyReviewChars() {
-    if (!stats || stats.reviewChars.length === 0) {
-      return;
-    }
-
-    setResultStatus((await copyText(joinCharacters(stats.reviewChars))) ? "待练字已复制" : "复制失败，请手动选择");
+  function openRecentHistory(drafts: CharacterDraft[]) {
+    setActiveListIdentity(getCharacterListIdentity(drafts));
+    setActiveResultRecordId(null);
+    setResultStatus(null);
+    setPage("resultHistory");
   }
 
-  function isWechatBrowser() {
-    return window.navigator.userAgent.toLowerCase().includes("micromessenger");
+  function openResultRecord(record: PracticeResultRecord) {
+    setActiveListIdentity(record.sourceListIdentity);
+    setActiveResultRecordId(record.id);
+    setResultStatus(null);
+    setPage("resultDetail");
+  }
+
+  function deleteResultRecord(record: PracticeResultRecord) {
+    deleteResultHistoryRecord(record.sourceListIdentity, record.id);
+    refreshStoredState();
+    setResultStatus("已删除识字结果");
+
+    if (activeResultRecordId === record.id) {
+      setActiveResultRecordId(null);
+      setPage("resultHistory");
+    }
+  }
+
+  function practiceDrafts(drafts: CharacterDraft[]) {
+    startPracticeFromDrafts(drafts);
   }
 
   function updateShareUrl(url: string) {
@@ -436,6 +530,10 @@ export default function App() {
     setShareStatus((await copyText(url)) ? successText : failureText);
   }
 
+  async function copyResultShareLink(url: string, successText: string, failureText: string) {
+    setResultStatus((await copyText(url)) ? successText : failureText);
+  }
+
   async function shareCharacters(drafts: CharacterDraft[]) {
     if (drafts.length === 0) {
       return;
@@ -443,23 +541,6 @@ export default function App() {
 
     const shareData = createSharedCharactersData(drafts, window.location.href);
     updateShareUrl(shareData.url);
-
-    if (isWechatBrowser()) {
-      await copyShareLink(shareData.url, "链接已复制，请点右上角分享", "请点右上角分享");
-      return;
-    }
-
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-        setShareStatus("已打开分享");
-        return;
-      } catch {
-        await copyShareLink(shareData.url, "分享未成功，链接已复制", "分享未成功，请从地址栏复制");
-        return;
-      }
-    }
-
     await copyShareLink(shareData.url, "链接已复制", "请从地址栏复制");
   }
 
@@ -469,6 +550,20 @@ export default function App() {
 
   function shareRecent(drafts: CharacterDraft[]) {
     void shareCharacters(drafts);
+  }
+
+  async function shareResultRecord(record: PracticeResultRecord) {
+    const shareData = createSharedResultData(record, window.location.href);
+    updateShareUrl(shareData.url);
+    await copyResultShareLink(shareData.url, "结果链接已复制", "请从地址栏复制");
+  }
+
+  function shareCurrentResult() {
+    if (!session) {
+      return;
+    }
+
+    void shareResultRecord(saveSessionResult(session));
   }
 
   function speakCurrent() {
@@ -482,6 +577,7 @@ export default function App() {
         <SetupPage
           inputText={inputText}
           recentLists={recentLists}
+          resultHistoriesByListIdentity={resultHistoriesByListIdentity}
           settings={settings}
           previewItems={previewItems}
           ocrPreviewImages={ocrPreviewImages}
@@ -493,6 +589,7 @@ export default function App() {
           editingRecentKey={editingRecentKey}
           onDeleteRecent={removeRecent}
           onEditRecent={editRecent}
+          onOpenRecentHistory={openRecentHistory}
           onClearOcr={clearOcrCandidates}
           onConfirmOcr={confirmOcrCandidates}
           onPinyinChange={updateSelectedPinyin}
@@ -528,12 +625,33 @@ export default function App() {
         <ResultPage
           actionStatus={resultStatus}
           canContinue={!isSessionComplete(session)}
-          canReview={stats.reviewCount > 0}
           stats={stats}
           onContinue={continuePractice}
-          onCopyReview={copyReviewChars}
           onRestart={restartSetup}
           onReview={reviewMistakes}
+          onShareResult={shareCurrentResult}
+        />
+      ) : null}
+
+      {page === "resultHistory" && activeListIdentity ? (
+        <ResultHistoryPage
+          drafts={activeRecentDrafts}
+          records={activeHistoryRecords}
+          onBack={restartSetup}
+          onDeleteRecord={deleteResultRecord}
+          onOpenRecord={openResultRecord}
+          onPracticeList={practiceDrafts}
+        />
+      ) : null}
+
+      {page === "resultDetail" && activeResultRecord ? (
+        <ResultDetailPage
+          actionStatus={resultStatus}
+          record={activeResultRecord}
+          onBack={() => setPage("resultHistory")}
+          onDelete={deleteResultRecord}
+          onPracticeList={practiceDrafts}
+          onShareResult={(record) => void shareResultRecord(record)}
         />
       ) : null}
     </div>

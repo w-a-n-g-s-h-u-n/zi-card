@@ -1,4 +1,4 @@
-import { AlertCircle, Check, Clipboard, Home, ListChecks, RotateCcw, Target } from "lucide-react";
+import { AlertCircle, Check, Home, ListChecks, RotateCcw, Share2, Target } from "lucide-react";
 import type { SessionStats } from "../types/session";
 import { Button } from "../ui/Button";
 import { ResultBadge } from "../ui/ResultBadge";
@@ -6,23 +6,21 @@ import { ResultBadge } from "../ui/ResultBadge";
 type ResultPageProps = {
   actionStatus: string | null;
   canContinue: boolean;
-  canReview: boolean;
   stats: SessionStats;
   onContinue: () => void;
-  onCopyReview: () => void;
   onRestart: () => void;
   onReview: () => void;
+  onShareResult: () => void;
 };
 
 export function ResultPage({
   actionStatus,
   canContinue,
-  canReview,
   stats,
   onContinue,
-  onCopyReview,
   onRestart,
   onReview,
+  onShareResult,
 }: ResultPageProps) {
   const headline = getResultHeadline(stats, canContinue);
   const primaryAction = getPrimaryAction(stats, canContinue, onContinue, onReview, onRestart);
@@ -58,6 +56,9 @@ export function ResultPage({
             回到字表
           </Button>
         )}
+        <Button icon={Share2} variant="quiet" size="large" onClick={onShareResult}>
+          分享识字结果
+        </Button>
         <p className="result-action-status" aria-live="polite">
           {actionStatus ?? ""}
         </p>
@@ -69,11 +70,6 @@ export function ResultPage({
             <p className="result-section-kicker">下一轮重点</p>
             <h2 id="review-title">待练字 {stats.reviewCount}</h2>
           </div>
-          {canReview ? (
-            <Button icon={Clipboard} variant="quiet" onClick={onCopyReview}>
-              复制待练字
-            </Button>
-          ) : null}
         </header>
         <ResultCharacterGroup
           chars={stats.unknownChars}

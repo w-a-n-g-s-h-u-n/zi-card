@@ -1,6 +1,7 @@
 import type { CharacterDraft, CharacterPreviewItem } from "../types/character";
 import type { StoredSettings } from "../storage/storageTypes";
 import type { OcrPreviewImage, OcrUiState } from "../types/ocr";
+import type { PracticeResultRecord } from "../types/result";
 import { CharacterInputPanel } from "./setup/CharacterInputPanel";
 import { SettingsPanel } from "./setup/SettingsPanel";
 
@@ -10,6 +11,7 @@ type SetupPageProps = {
   ocrState: OcrUiState;
   settings: StoredSettings;
   recentLists: CharacterDraft[][];
+  resultHistoriesByListIdentity: Record<string, PracticeResultRecord[]>;
   previewItems: CharacterPreviewItem[];
   showPinyinChoices: boolean;
   onInputChange: (value: string) => void;
@@ -18,6 +20,7 @@ type SetupPageProps = {
   onUseRecent: (drafts: CharacterDraft[]) => void;
   onEditRecent: (drafts: CharacterDraft[]) => void;
   onDeleteRecent: (drafts: CharacterDraft[]) => void;
+  onOpenRecentHistory: (drafts: CharacterDraft[]) => void;
   onClearOcr: () => void;
   onConfirmOcr: () => void;
   onImageFilesSelected: (files: File[]) => void;
@@ -37,6 +40,7 @@ export function SetupPage({
   ocrState,
   settings,
   recentLists,
+  resultHistoriesByListIdentity,
   previewItems,
   showPinyinChoices,
   onInputChange,
@@ -44,6 +48,7 @@ export function SetupPage({
   onSettingsChange,
   onUseRecent,
   onEditRecent,
+  onOpenRecentHistory,
   onImageFilesSelected,
   onClearOcr,
   onConfirmOcr,
@@ -93,9 +98,11 @@ export function SetupPage({
         <SettingsPanel
           editingRecentKey={editingRecentKey}
           recentLists={recentLists}
+          resultHistoriesByListIdentity={resultHistoriesByListIdentity}
           settings={settings}
           onDeleteRecent={onDeleteRecent}
           onEditRecent={onEditRecent}
+          onOpenRecentHistory={onOpenRecentHistory}
           onSettingsChange={onSettingsChange}
           onShareRecent={onShareRecent}
           onUseRecent={onUseRecent}

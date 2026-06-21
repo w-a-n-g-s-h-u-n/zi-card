@@ -1,4 +1,4 @@
-import type { CharacterItem } from "./character";
+import type { CharacterDraft, CharacterItem } from "./character";
 import type { PracticeMode } from "./mode";
 
 export type PracticeResult = "known" | "unknown" | "review" | "correct" | "wrong";
@@ -15,6 +15,9 @@ export type PracticeAttempt = {
 export type PracticeSession = {
   id: string;
   sourceText: string;
+  sourceListIdentity: string;
+  sourceDrafts: CharacterDraft[];
+  practiceDrafts: CharacterDraft[];
   items: CharacterItem[];
   queue: CharacterItem[];
   currentIndex: number;

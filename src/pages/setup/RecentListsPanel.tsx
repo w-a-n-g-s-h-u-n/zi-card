@@ -1,13 +1,16 @@
-import { BookOpenText, CheckCircle2, ListRestart, Pencil, Share2, Trash2 } from "lucide-react";
+import { BookOpenText, CheckCircle2, History, ListRestart, Pencil, Share2, Trash2 } from "lucide-react";
+import { getCharacterListIdentity, getResultRecordStats } from "../../core/resultHistory";
 import type { CharacterDraft } from "../../types/character";
-import { getRecentListKey } from "../../storage/localStorage";
+import type { PracticeResultRecord } from "../../types/result";
 import { joinCharacters } from "../../utils/text";
 
 type RecentListsPanelProps = {
   editingRecentKey: string | null;
   recentLists: CharacterDraft[][];
+  resultHistoriesByListIdentity: Record<string, PracticeResultRecord[]>;
   onDeleteRecent: (drafts: CharacterDraft[]) => void;
   onEditRecent: (drafts: CharacterDraft[]) => void;
+  onOpenRecentHistory: (drafts: CharacterDraft[]) => void;
   onShareRecent: (drafts: CharacterDraft[]) => void;
   onUseRecent: (drafts: CharacterDraft[]) => void;
 };
@@ -15,8 +18,10 @@ type RecentListsPanelProps = {
 export function RecentListsPanel({
   editingRecentKey,
   recentLists,
+  resultHistoriesByListIdentity,
   onDeleteRecent,
   onEditRecent,
+  onOpenRecentHistory,
   onShareRecent,
   onUseRecent,
 }: RecentListsPanelProps) {
@@ -34,16 +39,29 @@ export function RecentListsPanel({
       ) : (
         <div className="recent-list">
           {recentLists.map((drafts) => {
-            const key = getRecentListKey(drafts);
+            const key = getCharacterListIdentity(drafts);
             const text = joinCharacters(drafts.map((draft) => draft.char));
+            const historySummary = getHistorySummary(resultHistoriesByListIdentity[key] ?? []);
 
             return (
               <div className="recent-item" data-editing={editingRecentKey === key} key={key}>
                 <button className="recent-main-action" title="使用" type="button" onClick={() => onUseRecent(drafts)}>
                   <CheckCircle2 aria-hidden="true" size={18} />
-                  <span>{text}</span>
+                  <span className="recent-main-copy">
+                    <span>{text}</span>
+                    <small>{historySummary}</small>
+                  </span>
                 </button>
                 <div className="recent-row-actions">
+                  <button
+                    aria-label={`查看字表 ${text} 的识字结果历史`}
+                    className="recent-icon-action"
+                    title="历史"
+                    type="button"
+                    onClick={() => onOpenRecentHistory(drafts)}
+                  >
+                    <History aria-hidden="true" size={18} />
+                  </button>
                   <button
                     aria-label={`编辑字表 ${text}`}
                     className="recent-icon-action"
@@ -79,4 +97,15 @@ export function RecentListsPanel({
       )}
     </div>
   );
+}
+
+function getHistorySummary(records: PracticeResultRecord[]): string {
+  if (records.length === 0) {
+    return "暂无识字结果";
+  }
+
+  const latest = records[0];
+  const stats = getResultRecordStats(latest);
+
+  return `${records.length} 条结果 · 最近 ${stats.passRate}%`;
 }

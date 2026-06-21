@@ -2,6 +2,7 @@ import { BookOpenText, Brush, Dice5, Eye, Type, Volume2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { MODE_CONFIGS, MODE_ICONS } from "../../modes";
 import type { CharacterDraft } from "../../types/character";
+import type { PracticeResultRecord } from "../../types/result";
 import type { PracticeMode } from "../../types/mode";
 import type { CharacterFont, StoredSettings } from "../../storage/storageTypes";
 import { SegmentedControl } from "../../ui/SegmentedControl";
@@ -17,9 +18,11 @@ const CHARACTER_FONT_OPTIONS: Array<{ value: CharacterFont; label: string; icon:
 type SettingsPanelProps = {
   editingRecentKey: string | null;
   recentLists: CharacterDraft[][];
+  resultHistoriesByListIdentity: Record<string, PracticeResultRecord[]>;
   settings: StoredSettings;
   onDeleteRecent: (drafts: CharacterDraft[]) => void;
   onEditRecent: (drafts: CharacterDraft[]) => void;
+  onOpenRecentHistory: (drafts: CharacterDraft[]) => void;
   onSettingsChange: (settings: StoredSettings) => void;
   onShareRecent: (drafts: CharacterDraft[]) => void;
   onUseRecent: (drafts: CharacterDraft[]) => void;
@@ -28,9 +31,11 @@ type SettingsPanelProps = {
 export function SettingsPanel({
   editingRecentKey,
   recentLists,
+  resultHistoriesByListIdentity,
   settings,
   onDeleteRecent,
   onEditRecent,
+  onOpenRecentHistory,
   onSettingsChange,
   onShareRecent,
   onUseRecent,
@@ -86,8 +91,10 @@ export function SettingsPanel({
       <RecentListsPanel
         editingRecentKey={editingRecentKey}
         recentLists={recentLists}
+        resultHistoriesByListIdentity={resultHistoriesByListIdentity}
         onDeleteRecent={onDeleteRecent}
         onEditRecent={onEditRecent}
+        onOpenRecentHistory={onOpenRecentHistory}
         onShareRecent={onShareRecent}
         onUseRecent={onUseRecent}
       />
