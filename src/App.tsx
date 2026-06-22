@@ -157,7 +157,7 @@ export default function App() {
         } else {
           const importedDrafts = importCharacterDrafts(sharedDrafts, { overwriteLocalDrafts: false });
           stored = readStoredData();
-          showImportedCharacterPreview(importedDrafts);
+          showCharacterPreviewSelection(importedDrafts);
           setShareStatus("已导入分享字表");
         }
       }
@@ -254,7 +254,7 @@ export default function App() {
     setSettings(nextSettings);
     saveSettings(nextSettings);
 
-    scheduleCharacterFontLoad(nextSettings.characterFont);
+    scheduleCharacterFontLoad(nextSettings.characterFont, 0);
   }
 
   function refreshStoredState() {
@@ -310,16 +310,24 @@ export default function App() {
 
   function completeCharacterImport(resolvedDrafts: CharacterDraft[], status: string) {
     applyStoredState();
-    showImportedCharacterPreview(resolvedDrafts);
+    showCharacterPreviewSelection(resolvedDrafts);
     setPendingImport(null);
     setPage("setup");
     setShareStatus(status);
   }
 
-  function showImportedCharacterPreview(drafts: CharacterDraft[]) {
+  function showCharacterPreviewSelection(drafts: CharacterDraft[]) {
     setInputText(joinCharacters(drafts.map((draft) => draft.char)));
     setSelectedPinyins(getSelectedPinyinMap(drafts));
     setEditingRecentKey(getCharacterListIdentity(drafts));
+    setIsEditingSelectedRecent(false);
+    setIsSetupPinyinEditing(false);
+  }
+
+  function clearCharacterPreviewSelection() {
+    setInputText("");
+    setSelectedPinyins({});
+    setEditingRecentKey(null);
     setIsEditingSelectedRecent(false);
     setIsSetupPinyinEditing(false);
   }
@@ -408,6 +416,7 @@ export default function App() {
 
   function updateInputText(value: string) {
     const nextChars = new Set(getCharacterPreview(value));
+
     setInputText(value);
     setSelectedPinyins((current) =>
       Object.fromEntries(Object.entries(current).filter(([char]) => nextChars.has(char))),
@@ -436,15 +445,16 @@ export default function App() {
 
   function persistStoredPreviewDrafts(nextDrafts: CharacterDraft[]) {
     const nextIdentity = getCharacterListIdentity(nextDrafts);
+    const replaceKey = editingRecentKey === nextIdentity ? editingRecentKey : undefined;
     const existingKey =
-      editingRecentKey ??
+      replaceKey ??
       (recentLists.some((drafts) => getCharacterListIdentity(drafts) === nextIdentity) ? nextIdentity : null);
 
-    if (!existingKey) {
+    if (!existingKey && !editingRecentKey) {
       return;
     }
 
-    saveRecentList(nextDrafts, existingKey);
+    saveRecentList(nextDrafts, existingKey ?? undefined);
     refreshStoredState();
     setEditingRecentKey(nextIdentity);
   }
@@ -574,7 +584,10 @@ export default function App() {
   }
 
   function startPractice() {
-    startPracticeFromDrafts(previewDrafts, editingRecentKey ?? undefined);
+    const currentListIdentity = getCharacterListIdentity(previewDrafts);
+    const replaceKey = editingRecentKey === currentListIdentity ? editingRecentKey : undefined;
+
+    startPracticeFromDrafts(previewDrafts, replaceKey);
   }
 
   function startPracticeFromDrafts(drafts: CharacterDraft[], replaceKey?: string) {
@@ -632,6 +645,13 @@ export default function App() {
   }
 
   function exitSetupEditing() {
+    if (previewDrafts.length > 0) {
+      persistStoredPreviewDrafts(previewDrafts);
+    } else {
+      clearCharacterPreviewSelection();
+      return;
+    }
+
     setIsEditingSelectedRecent(false);
     setIsSetupPinyinEditing(false);
   }
@@ -818,6 +838,17 @@ export default function App() {
   }
 
   function restartSetup() {
+    const contextDrafts =
+      session?.sourceDrafts ??
+      activeResultRecord?.sourceDrafts ??
+      (activeRecentDrafts.length > 0 ? activeRecentDrafts : null);
+
+    if (contextDrafts && contextDrafts.length > 0) {
+      showCharacterPreviewSelection(contextDrafts);
+    } else {
+      clearCharacterPreviewSelection();
+    }
+
     setPage("setup");
     setSession(null);
     setAnswerEditingReturnPage(null);
@@ -1125,14 +1156,14 @@ function revokeOcrPreviewImages(images: OcrPreviewImage[]) {
   }
 }
 
-function scheduleCharacterFontLoad(characterFont: StoredSettings["characterFont"]): () => void {
+function scheduleCharacterFontLoad(characterFont: StoredSettings["characterFont"], delayMs = 0): () => void {
   if (characterFont === "sans") {
     return () => undefined;
   }
 
   const timer = window.setTimeout(() => {
     void loadCharacterFont(characterFont).catch(() => undefined);
-  }, 900);
+  }, delayMs);
 
   return () => {
     window.clearTimeout(timer);
