@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowLeft, BookOpenText, Check, RotateCcw, Share2, Target, Trash2 } from "lucide-react";
+import { AlertCircle, ArrowLeft, BookOpenText, Check, PencilLine, RotateCcw, Share2, Target, Trash2 } from "lucide-react";
 import { getResultRecordDraftGroups, getResultRecordStats } from "../core/resultHistory";
 import { resolveCharacterPinyin } from "../core/pinyin";
 import type { CharacterDraft } from "../types/character";
@@ -11,6 +11,7 @@ type ResultDetailPageProps = {
   record: PracticeResultRecord;
   onBack: () => void;
   onDelete: (record: PracticeResultRecord) => void;
+  onEditAnswers: (record: PracticeResultRecord) => void;
   onPracticeList: (drafts: CharacterDraft[]) => void;
   onShareResult: (record: PracticeResultRecord) => void;
 };
@@ -20,6 +21,7 @@ export function ResultDetailPage({
   record,
   onBack,
   onDelete,
+  onEditAnswers,
   onPracticeList,
   onShareResult,
 }: ResultDetailPageProps) {
@@ -52,6 +54,11 @@ export function ResultDetailPage({
         <Button icon={ArrowLeft} variant="quiet" size="large" onClick={onBack}>
           返回历史
         </Button>
+        {stats.practiced > 0 ? (
+          <Button icon={PencilLine} size="large" onClick={() => onEditAnswers(record)}>
+            修改答案
+          </Button>
+        ) : null}
         <Button icon={Share2} size="large" onClick={() => onShareResult(record)}>
           分享识字结果
         </Button>

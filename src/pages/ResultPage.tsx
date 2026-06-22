@@ -1,4 +1,4 @@
-import { AlertCircle, Check, Home, ListChecks, RotateCcw, Share2, Target } from "lucide-react";
+import { AlertCircle, Check, Home, ListChecks, PencilLine, RotateCcw, Share2, Target } from "lucide-react";
 import type { SessionStats } from "../types/session";
 import { Button } from "../ui/Button";
 import { ResultBadge } from "../ui/ResultBadge";
@@ -8,6 +8,7 @@ type ResultPageProps = {
   canContinue: boolean;
   stats: SessionStats;
   onContinue: () => void;
+  onEditAnswers: () => void;
   onRestart: () => void;
   onReview: () => void;
   onShareResult: () => void;
@@ -18,6 +19,7 @@ export function ResultPage({
   canContinue,
   stats,
   onContinue,
+  onEditAnswers,
   onRestart,
   onReview,
   onShareResult,
@@ -56,6 +58,11 @@ export function ResultPage({
             回到字表
           </Button>
         )}
+        {stats.practiced > 0 ? (
+          <Button icon={PencilLine} variant="quiet" size="large" onClick={onEditAnswers}>
+            修改答案
+          </Button>
+        ) : null}
         <Button icon={Share2} variant="quiet" size="large" onClick={onShareResult}>
           分享识字结果
         </Button>

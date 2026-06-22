@@ -55,6 +55,10 @@ export function writeStoredData(data: StoredData): void {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
+export function clearStoredData(): void {
+  window.localStorage.removeItem(STORAGE_KEY);
+}
+
 export function saveSettings(settings: StoredSettings): void {
   const current = readStoredData();
   writeStoredData({

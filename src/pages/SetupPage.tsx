@@ -22,6 +22,7 @@ type SetupPageProps = {
   onEditRecent: (drafts: CharacterDraft[]) => void;
   onDeleteRecent: (drafts: CharacterDraft[]) => void;
   onOpenRecentHistory: (drafts: CharacterDraft[]) => void;
+  onClearAllCache: () => void;
   onClearOcr: () => void;
   onConfirmOcr: () => void;
   onImageFilesSelected: (files: File[]) => void;
@@ -51,6 +52,7 @@ export function SetupPage({
   onSettingsChange,
   onEditRecent,
   onOpenRecentHistory,
+  onClearAllCache,
   onImageFilesSelected,
   onClearOcr,
   onConfirmOcr,
@@ -107,6 +109,7 @@ export function SetupPage({
           onDeleteRecent={onDeleteRecent}
           onEditRecent={onEditRecent}
           onOpenRecentHistory={onOpenRecentHistory}
+          onClearAllCache={onClearAllCache}
           onSettingsChange={onSettingsChange}
           onShareRecent={onShareRecent}
         />

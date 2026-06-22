@@ -19,11 +19,13 @@ import {
 } from "./core/share";
 import {
   createPracticeSession,
+  createPracticeSessionFromResultRecord,
   createReviewSession,
   goToNext,
   goToPrevious,
   getCurrentResult,
   isSessionComplete,
+  prepareSessionForAnswerEditing,
   recordAttempt,
   updateSessionDrafts,
 } from "./core/session";
@@ -33,6 +35,7 @@ import { ResultHistoryPage } from "./pages/ResultHistoryPage";
 import { ResultPage } from "./pages/ResultPage";
 import { SetupPage } from "./pages/SetupPage";
 import {
+  clearStoredData,
   DEFAULT_SETTINGS,
   deleteResultHistoryRecord,
   deleteRecentList,
@@ -392,6 +395,34 @@ export default function App() {
     }
   }
 
+  function clearAllCache() {
+    const confirmed = window.confirm("确定清理全部缓存？最近字表、识字结果和设置都会删除。");
+
+    if (!confirmed) {
+      return;
+    }
+
+    clearStoredData();
+    setInputText("");
+    setSelectedPinyins({});
+    setSettings(DEFAULT_SETTINGS);
+    setRecentLists([]);
+    setResultHistoriesByListIdentity({});
+    setEditingRecentKey(null);
+    setSession(null);
+    setActiveListIdentity(null);
+    setActiveResultRecordId(null);
+    setOcrState(OCR_IDLE_STATE);
+    setOcrPreviewImages([]);
+    setLastOcrFiles([]);
+    setIsSetupPinyinEditing(false);
+    setResultStatus(null);
+    setShareStatus("已清理全部缓存");
+    setPage("setup");
+    updateShareUrl(window.location.pathname);
+    scheduleHandwritingFontLoad(DEFAULT_SETTINGS.characterFont);
+  }
+
   function updateSession(nextSession: PracticeSession) {
     setSession(nextSession);
 
@@ -512,6 +543,24 @@ export default function App() {
     setResultStatus(null);
   }
 
+  function editCurrentAnswers() {
+    if (!session) {
+      return;
+    }
+
+    setSession(prepareSessionForAnswerEditing(session));
+    setResultStatus(null);
+    setPage("practice");
+  }
+
+  function editResultRecord(record: PracticeResultRecord) {
+    setSession(createPracticeSessionFromResultRecord(record));
+    setActiveListIdentity(record.sourceListIdentity);
+    setActiveResultRecordId(record.id);
+    setResultStatus(null);
+    setPage("practice");
+  }
+
   function reviewMistakes() {
     if (!session) {
       return;
@@ -625,6 +674,7 @@ export default function App() {
           onDeleteRecent={removeRecent}
           onEditRecent={editRecent}
           onOpenRecentHistory={openRecentHistory}
+          onClearAllCache={clearAllCache}
           onClearOcr={clearOcrCandidates}
           onConfirmOcr={confirmOcrCandidates}
           onPinyinChange={updateSelectedPinyin}
@@ -666,6 +716,7 @@ export default function App() {
           canContinue={!isSessionComplete(session)}
           stats={stats}
           onContinue={continuePractice}
+          onEditAnswers={editCurrentAnswers}
           onRestart={restartSetup}
           onReview={reviewMistakes}
           onShareResult={shareCurrentResult}
@@ -689,6 +740,7 @@ export default function App() {
           record={activeResultRecord}
           onBack={() => setPage("resultHistory")}
           onDelete={deleteResultRecord}
+          onEditAnswers={editResultRecord}
           onPracticeList={practiceDrafts}
           onShareResult={(record) => void shareResultRecord(record)}
         />

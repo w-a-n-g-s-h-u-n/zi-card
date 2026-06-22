@@ -1,5 +1,6 @@
 import type { CharacterDraft, CharacterItem } from "../types/character";
 import type { PracticeMode } from "../types/mode";
+import type { PracticeResultRecord } from "../types/result";
 import type { CharacterAssessment, PracticeResult, PracticeSession } from "../types/session";
 import { createCharacterItemsFromDrafts } from "./characters";
 import { createDraftsFromItems, getCharacterListIdentity } from "./resultHistory";
@@ -38,6 +39,30 @@ export function createPracticeSession(input: CreateSessionInput): PracticeSessio
   };
 }
 
+export function createPracticeSessionFromResultRecord(record: PracticeResultRecord): PracticeSession {
+  const items = createCharacterItemsFromDrafts(record.practiceDrafts);
+  const results = pickResultsForItems(record.results, items);
+
+  return syncLegacyBuckets({
+    id: record.id,
+    sourceText: record.sourceDrafts.map((draft) => draft.char).join(""),
+    sourceListIdentity: record.sourceListIdentity,
+    sourceDrafts: record.sourceDrafts,
+    practiceDrafts: record.practiceDrafts,
+    items,
+    queue: items,
+    currentIndex: getLastAnsweredIndex(items, results),
+    mode: record.mode,
+    round: record.round,
+    known: [],
+    unknown: [],
+    mistakes: [],
+    results,
+    attempts: [],
+    createdAt: record.createdAt,
+  });
+}
+
 export function getCurrentItem(session: PracticeSession): CharacterItem | undefined {
   return session.queue[session.currentIndex];
 }
@@ -57,6 +82,13 @@ export function goToPrevious(session: PracticeSession): PracticeSession {
   return {
     ...session,
     currentIndex: Math.max(session.currentIndex - 1, 0),
+  };
+}
+
+export function prepareSessionForAnswerEditing(session: PracticeSession): PracticeSession {
+  return {
+    ...session,
+    currentIndex: getLastAnsweredIndex(session.queue, session.results, session.currentIndex),
   };
 }
 
@@ -203,4 +235,31 @@ function preserveQueueOrder(queue: CharacterItem[], items: CharacterItem[]): Cha
   const queuedChars = new Set(queuedItems.map((item) => item.char));
 
   return [...queuedItems, ...items.filter((item) => !queuedChars.has(item.char))];
+}
+
+function getLastAnsweredIndex(
+  queue: CharacterItem[],
+  results: Record<string, CharacterAssessment>,
+  fallbackIndex = 0,
+): number {
+  if (queue.length === 0) {
+    return 0;
+  }
+
+  for (let index = queue.length - 1; index >= 0; index -= 1) {
+    if (results[queue[index].char]) {
+      return index;
+    }
+  }
+
+  return Math.min(Math.max(fallbackIndex, 0), queue.length - 1);
+}
+
+function pickResultsForItems(
+  results: Record<string, CharacterAssessment>,
+  items: CharacterItem[],
+): Record<string, CharacterAssessment> {
+  const itemChars = new Set(items.map((item) => item.char));
+
+  return Object.fromEntries(Object.entries(results).filter(([char]) => itemChars.has(char)));
 }

@@ -1,4 +1,4 @@
-import { Dice5 } from "lucide-react";
+import { Dice5, Trash2 } from "lucide-react";
 import { MODE_CONFIGS, MODE_ICONS } from "../../modes";
 import type { CharacterDraft } from "../../types/character";
 import type { PracticeResultRecord } from "../../types/result";
@@ -16,6 +16,7 @@ type SettingsPanelProps = {
   onDeleteRecent: (drafts: CharacterDraft[]) => void;
   onEditRecent: (drafts: CharacterDraft[]) => void;
   onOpenRecentHistory: (drafts: CharacterDraft[]) => void;
+  onClearAllCache: () => void;
   onSettingsChange: (settings: StoredSettings) => void;
   onShareRecent: (drafts: CharacterDraft[]) => void;
 };
@@ -28,6 +29,7 @@ export function SettingsPanel({
   onDeleteRecent,
   onEditRecent,
   onOpenRecentHistory,
+  onClearAllCache,
   onSettingsChange,
   onShareRecent,
 }: SettingsPanelProps) {
@@ -69,6 +71,16 @@ export function SettingsPanel({
         onOpenRecentHistory={onOpenRecentHistory}
         onShareRecent={onShareRecent}
       />
+
+      <button
+        className="clear-cache-button"
+        title="清理全部缓存"
+        type="button"
+        onClick={onClearAllCache}
+      >
+        <Trash2 aria-hidden="true" size={19} />
+        <span>清理全部缓存</span>
+      </button>
     </aside>
   );
 }

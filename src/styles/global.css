@@ -708,6 +708,27 @@ h2 {
   gap: 8px;
 }
 
+.clear-cache-button {
+  min-height: 52px;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid #efb2a9;
+  border-radius: 8px;
+  padding: 0 12px;
+  background: var(--color-coral-soft);
+  color: #9c3330;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.clear-cache-button > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .recent-item {
   min-height: 48px;
   display: grid;
@@ -844,7 +865,8 @@ h2 {
 .pinyin-choice:focus-visible,
 .preview-edit-toggle:focus-visible,
 .recent-main-action:focus-visible,
-.recent-icon-action:focus-visible {
+.recent-icon-action:focus-visible,
+.clear-cache-button:focus-visible {
   outline: 3px solid #0f6f66;
   outline-offset: 3px;
   box-shadow: 0 0 0 6px rgb(20 124 114 / 18%);
@@ -885,7 +907,8 @@ h2 {
 .segment:active,
 .find-option:active,
 .recent-main-action:active,
-.recent-icon-action:active {
+.recent-icon-action:active,
+.clear-cache-button:active {
   transform: scale(0.98);
 }
 
