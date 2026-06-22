@@ -157,9 +157,7 @@ export default function App() {
         } else {
           const importedDrafts = importCharacterDrafts(sharedDrafts, { overwriteLocalDrafts: false });
           stored = readStoredData();
-          setInputText(joinCharacters(importedDrafts.map((draft) => draft.char)));
-          setSelectedPinyins(getSelectedPinyinMap(importedDrafts));
-          setIsSetupPinyinEditing(false);
+          showImportedCharacterPreview(importedDrafts);
           setShareStatus("已导入分享字表");
         }
       }
@@ -312,12 +310,18 @@ export default function App() {
 
   function completeCharacterImport(resolvedDrafts: CharacterDraft[], status: string) {
     applyStoredState();
-    setInputText(joinCharacters(resolvedDrafts.map((draft) => draft.char)));
-    setSelectedPinyins(getSelectedPinyinMap(resolvedDrafts));
-    setIsSetupPinyinEditing(false);
+    showImportedCharacterPreview(resolvedDrafts);
     setPendingImport(null);
     setPage("setup");
     setShareStatus(status);
+  }
+
+  function showImportedCharacterPreview(drafts: CharacterDraft[]) {
+    setInputText(joinCharacters(drafts.map((draft) => draft.char)));
+    setSelectedPinyins(getSelectedPinyinMap(drafts));
+    setEditingRecentKey(getCharacterListIdentity(drafts));
+    setIsEditingSelectedRecent(false);
+    setIsSetupPinyinEditing(false);
   }
 
   function completeResultImport(record: PracticeResultRecord, resolvedSourceDrafts: CharacterDraft[], status: string) {
