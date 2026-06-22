@@ -1,4 +1,4 @@
-import { Pencil, Play, Share2 } from "lucide-react";
+import { Pencil, Play, Share2, X } from "lucide-react";
 import type { ChangeEvent } from "react";
 import type { StoredSettings } from "../../storage/storageTypes";
 import type { CharacterPreviewItem } from "../../types/character";
@@ -27,6 +27,7 @@ type CharacterInputPanelProps = {
   onOcrCandidateChange: (value: string) => void;
   onPinyinChange: (char: string, pinyin: string) => void;
   onEditSelectedRecent: () => void;
+  onExitEditing: () => void;
   onPrepareOcr: () => void;
   onReorderPreviewItems: (fromIndex: number, toIndex: number) => void;
   onRetryOcr: () => void;
@@ -54,6 +55,7 @@ export function CharacterInputPanel({
   onOcrCandidateChange,
   onPinyinChange,
   onEditSelectedRecent,
+  onExitEditing,
   onPrepareOcr,
   onReorderPreviewItems,
   onRetryOcr,
@@ -81,6 +83,13 @@ export function CharacterInputPanel({
           <label className="field-label" htmlFor="character-input">
             {editingRecentKey ? "编辑历史字表" : "本次字表"}
           </label>
+
+          {isRecentSelected && isEditingSelectedRecent ? (
+            <button className="input-edit-exit" type="button" onClick={onExitEditing}>
+              <X aria-hidden="true" size={16} />
+              <span>退出编辑</span>
+            </button>
+          ) : null}
 
           <ImageOcrPanel
             isOcrAvailable={isOcrAvailable}
@@ -110,33 +119,40 @@ export function CharacterInputPanel({
           <div className="preview-heading">
             <span>字表预览</span>
             <strong>{previewCountLabel}</strong>
+            {hasPolyphonicPreview && showInputEditor ? (
+              <button
+                className="preview-edit-toggle preview-edit-toggle--compact"
+                data-active={effectiveShowPinyinChoices}
+                type="button"
+                onClick={onTogglePinyinEdit}
+              >
+                <Pencil aria-hidden="true" size={16} />
+                <span>{effectiveShowPinyinChoices ? "收起读音" : "编辑读音"}</span>
+              </button>
+            ) : null}
             <DisplaySettingsButton>
-              <PracticeGeneralSettings
-                settings={settings}
-                showRandomOrder
-                onSettingsChange={onSettingsChange}
-              />
-              {isRecentSelected && !showInputEditor ? (
-                <button
-                  className="preview-edit-toggle"
-                  type="button"
-                  onClick={onEditSelectedRecent}
-                >
-                  <Pencil aria-hidden="true" size={17} />
-                  <span>编辑字表</span>
-                </button>
-              ) : null}
-              {hasPolyphonicPreview ? (
-                <button
-                  className="preview-edit-toggle"
-                  data-active={effectiveShowPinyinChoices}
-                  type="button"
-                  onClick={onTogglePinyinEdit}
-                >
-                  <Pencil aria-hidden="true" size={17} />
-                  <span>{effectiveShowPinyinChoices ? "收起读音" : "编辑读音"}</span>
-                </button>
-              ) : null}
+              {({ close }) => (
+                <>
+                  <PracticeGeneralSettings
+                    settings={settings}
+                    showRandomOrder
+                    onSettingsChange={onSettingsChange}
+                  />
+                  {isRecentSelected && !showInputEditor ? (
+                    <button
+                      className="preview-edit-toggle"
+                      type="button"
+                      onClick={() => {
+                        onEditSelectedRecent();
+                        close();
+                      }}
+                    >
+                      <Pencil aria-hidden="true" size={17} />
+                      <span>编辑字表</span>
+                    </button>
+                  ) : null}
+                </>
+              )}
             </DisplaySettingsButton>
           </div>
           <CharacterPreviewList

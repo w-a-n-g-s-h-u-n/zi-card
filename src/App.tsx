@@ -627,6 +627,11 @@ export default function App() {
     setIsEditingSelectedRecent(true);
   }
 
+  function exitSetupEditing() {
+    setIsEditingSelectedRecent(false);
+    setIsSetupPinyinEditing(false);
+  }
+
   function removeRecent(drafts: CharacterDraft[]) {
     const key = getRecentListKey(drafts);
     deleteRecentList(key);
@@ -984,6 +989,7 @@ export default function App() {
           onPinyinChange={updateSelectedPinyin}
           onPinyinEditToggle={() => setIsSetupPinyinEditing((current) => !current)}
           onEditSelectedRecent={editSelectedRecent}
+          onExitEditing={exitSetupEditing}
           onReorderPreviewItems={reorderPreviewItems}
           onOcrCandidateChange={updateOcrCandidateText}
           onPrepareOcr={prepareOcrModel}

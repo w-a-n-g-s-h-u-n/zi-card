@@ -20,6 +20,7 @@ type SetupPageProps = {
   onPinyinChange: (char: string, pinyin: string) => void;
   onPinyinEditToggle: () => void;
   onEditSelectedRecent: () => void;
+  onExitEditing: () => void;
   onReorderPreviewItems: (fromIndex: number, toIndex: number) => void;
   onSettingsChange: (settings: StoredSettings) => void;
   onEditRecent: (drafts: CharacterDraft[]) => void;
@@ -54,6 +55,7 @@ export function SetupPage({
   onPinyinChange,
   onPinyinEditToggle,
   onEditSelectedRecent,
+  onExitEditing,
   onReorderPreviewItems,
   onSettingsChange,
   onEditRecent,
@@ -103,6 +105,7 @@ export function SetupPage({
           onOcrCandidateChange={onOcrCandidateChange}
           onPinyinChange={onPinyinChange}
           onEditSelectedRecent={onEditSelectedRecent}
+          onExitEditing={onExitEditing}
           onPrepareOcr={onPrepareOcr}
           onReorderPreviewItems={onReorderPreviewItems}
           onRetryOcr={onRetryOcr}

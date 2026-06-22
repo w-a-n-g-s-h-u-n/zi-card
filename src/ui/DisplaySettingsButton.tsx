@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { IconButton } from "./IconButton";
 
 type DisplaySettingsButtonProps = {
-  children: ReactNode;
+  children: ReactNode | ((controls: { close: () => void }) => ReactNode);
 };
 
 export function DisplaySettingsButton({ children }: DisplaySettingsButtonProps) {
@@ -47,7 +47,11 @@ export function DisplaySettingsButton({ children }: DisplaySettingsButtonProps) 
         variant="quiet"
         onClick={() => setIsOpen((current) => !current)}
       />
-      {isOpen ? <div className="display-settings-popover">{children}</div> : null}
+      {isOpen ? (
+        <div className="display-settings-popover">
+          {typeof children === "function" ? children({ close: () => setIsOpen(false) }) : children}
+        </div>
+      ) : null}
     </div>
   );
 }
