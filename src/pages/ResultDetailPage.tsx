@@ -20,7 +20,6 @@ type ResultDetailPageProps = {
   onEditAnswers: (record: PracticeResultRecord) => void;
   onPracticeList: (drafts: CharacterDraft[]) => void;
   onReorderPracticeDrafts: (record: PracticeResultRecord, drafts: CharacterDraft[]) => void;
-  onReorderSourceDrafts: (record: PracticeResultRecord, drafts: CharacterDraft[]) => void;
   onSettingsChange: (settings: StoredSettings) => void;
   onShareResult: (record: PracticeResultRecord) => void;
 };
@@ -34,7 +33,6 @@ export function ResultDetailPage({
   onEditAnswers,
   onPracticeList,
   onReorderPracticeDrafts,
-  onReorderSourceDrafts,
   onSettingsChange,
   onShareResult,
 }: ResultDetailPageProps) {
@@ -177,9 +175,6 @@ export function ResultDetailPage({
           label="原始"
           showPinyin={settings.showPinyin}
           tone="neutral"
-          onReorder={(fromIndex, toIndex) =>
-            onReorderSourceDrafts(record, moveItem(record.sourceDrafts, fromIndex, toIndex))
-          }
         />
       </section>
 
@@ -214,7 +209,7 @@ function ResultDraftGroup({
   drafts: CharacterDraft[];
   emptyText: string;
   label: string;
-  onReorder: (fromIndex: number, toIndex: number) => void;
+  onReorder?: (fromIndex: number, toIndex: number) => void;
   showPinyin: boolean;
   tone: CharacterChipTone;
 }) {

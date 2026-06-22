@@ -20,7 +20,7 @@ type ResultPageProps = {
   onEditAnswers: () => void;
   onRestart: () => void;
   onReview: () => void;
-  onReorderItems: (drafts: CharacterDraft[]) => void;
+  onReorderPracticeDrafts: (drafts: CharacterDraft[]) => void;
   onSettingsChange: (settings: StoredSettings) => void;
   onShareResult: () => void;
 };
@@ -35,7 +35,7 @@ export function ResultPage({
   onEditAnswers,
   onRestart,
   onReview,
-  onReorderItems,
+  onReorderPracticeDrafts,
   onSettingsChange,
   onShareResult,
 }: ResultPageProps) {
@@ -107,7 +107,7 @@ export function ResultPage({
           showPinyin={settings.showPinyin}
           tone="red"
           onReorder={(fromIndex, toIndex) =>
-            onReorderItems(reorderResultDrafts(items, stats.unknownChars, fromIndex, toIndex))
+            onReorderPracticeDrafts(reorderResultDrafts(items, stats.unknownChars, fromIndex, toIndex))
           }
         />
         <ResultCharacterGroup
@@ -118,7 +118,7 @@ export function ResultPage({
           showPinyin={settings.showPinyin}
           tone="yellow"
           onReorder={(fromIndex, toIndex) =>
-            onReorderItems(reorderResultDrafts(items, stats.reviewOnlyChars, fromIndex, toIndex))
+            onReorderPracticeDrafts(reorderResultDrafts(items, stats.reviewOnlyChars, fromIndex, toIndex))
           }
         />
         {stats.unansweredChars.length > 0 ? (
@@ -130,7 +130,7 @@ export function ResultPage({
             showPinyin={settings.showPinyin}
             tone="neutral"
             onReorder={(fromIndex, toIndex) =>
-              onReorderItems(reorderResultDrafts(items, stats.unansweredChars, fromIndex, toIndex))
+              onReorderPracticeDrafts(reorderResultDrafts(items, stats.unansweredChars, fromIndex, toIndex))
             }
           />
         ) : null}
@@ -149,7 +149,7 @@ export function ResultPage({
           showPinyin={settings.showPinyin}
           tone="green"
           onReorder={(fromIndex, toIndex) =>
-            onReorderItems(reorderResultDrafts(items, stats.knownChars, fromIndex, toIndex))
+            onReorderPracticeDrafts(reorderResultDrafts(items, stats.knownChars, fromIndex, toIndex))
           }
         />
       </section>

@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import type { CharacterAssessment } from "../types/session";
 import { CharacterChip, type CharacterChipTone } from "./CharacterChip";
 
@@ -39,10 +39,13 @@ export function ProgressDots({
   showPinyin = false,
   onSelect,
 }: ProgressDotsProps) {
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const pointerDownRef = useRef(false);
   const pointerDraggedRef = useRef(false);
   const pointerStartXRef = useRef(0);
+  const pointerStartIndexRef = useRef(0);
   const dots = Array.from({ length: total }, (_, index) => index);
   const activeIndex = total === 0 ? 0 : Math.min(Math.max(current, 0), total - 1);
   const slotSize = showCharacters ? PROGRESS_CHARACTER_SLOT_SIZE : PROGRESS_DOT_SLOT_SIZE;
@@ -61,17 +64,25 @@ export function ProgressDots({
   const label = `进度 ${Math.min(current + 1, total)} / ${total}，正确 ${resultCounts.known}，巩固 ${resultCounts.review}，错误 ${resultCounts.unknown}`;
   const canSelectCharacters = showCharacters && Boolean(onSelect);
 
-  function selectNearestIndex(clientX: number) {
+  function getNearestIndex(clientX: number) {
     if (!rootRef.current || !onSelect) {
-      return;
+      return activeIndex;
     }
 
     const rect = rootRef.current.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
     const offsetSteps = Math.round((clientX - centerX) / trackStep);
-    const nextIndex = Math.min(Math.max(activeIndex + offsetSteps, 0), Math.max(total - 1, 0));
 
-    onSelect(nextIndex);
+    return clampProgressIndex(activeIndex + offsetSteps, total);
+  }
+
+  function selectDraggedIndex(clientX: number) {
+    if (!onSelect) {
+      return;
+    }
+
+    const offsetSteps = Math.round((clientX - pointerStartXRef.current) / trackStep);
+    onSelect(clampProgressIndex(pointerStartIndexRef.current - offsetSteps, total));
   }
 
   return (
@@ -79,7 +90,9 @@ export function ProgressDots({
       aria-label={label}
       className="progress-dots"
       data-draggable={canSelectCharacters ? "true" : "false"}
+      data-dragging={isDragging ? "true" : "false"}
       data-preview={showCharacters ? "characters" : "dots"}
+      data-with-pinyin={showPinyin ? "true" : "false"}
       ref={rootRef}
       onPointerDown={(event) => {
         if (!canSelectCharacters) {
@@ -89,8 +102,10 @@ export function ProgressDots({
         pointerDownRef.current = true;
         pointerDraggedRef.current = false;
         pointerStartXRef.current = event.clientX;
+        pointerStartIndexRef.current = getNearestIndex(event.clientX);
+        setDragOffset(0);
+        setIsDragging(true);
         event.currentTarget.setPointerCapture(event.pointerId);
-        selectNearestIndex(event.clientX);
       }}
       onPointerMove={(event) => {
         if (!canSelectCharacters || !pointerDownRef.current) {
@@ -99,28 +114,45 @@ export function ProgressDots({
 
         if (Math.abs(event.clientX - pointerStartXRef.current) > 4) {
           pointerDraggedRef.current = true;
+          setDragOffset(event.clientX - pointerStartXRef.current);
         }
-
-        selectNearestIndex(event.clientX);
       }}
       onPointerUp={(event) => {
         if (!canSelectCharacters) {
           return;
         }
 
+        const clickedChip =
+          event.target instanceof HTMLElement ? event.target.closest(".progress-character-chip") : null;
+
+        if (!pointerDraggedRef.current && !clickedChip) {
+          onSelect?.(getNearestIndex(event.clientX));
+        }
+
+        if (pointerDraggedRef.current) {
+          selectDraggedIndex(event.clientX);
+        }
+
         pointerDownRef.current = false;
-        event.currentTarget.releasePointerCapture(event.pointerId);
+        setDragOffset(0);
+        setIsDragging(false);
+
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }
       }}
       onPointerCancel={() => {
         pointerDownRef.current = false;
         pointerDraggedRef.current = false;
+        setDragOffset(0);
+        setIsDragging(false);
       }}
     >
       <div
         className="progress-dots-track"
         data-preview={showCharacters ? "characters" : "dots"}
         style={{
-          transform: `translateX(calc(-${slotSize / 2}px - ${trackOffset}px))`,
+          transform: `translateX(calc(-${slotSize / 2}px - ${trackOffset}px + ${dragOffset}px))`,
         }}
       >
         {dots.map((dot) => {
@@ -172,6 +204,7 @@ export function ProgressDots({
           );
         })}
       </div>
+      {showCharacters ? <span aria-hidden="true" className="progress-selection-frame" /> : null}
     </div>
   );
 }
@@ -190,4 +223,8 @@ function getResultTone(result?: CharacterAssessment): CharacterChipTone {
   }
 
   return "neutral";
+}
+
+function clampProgressIndex(index: number, total: number): number {
+  return Math.min(Math.max(index, 0), Math.max(total - 1, 0));
 }

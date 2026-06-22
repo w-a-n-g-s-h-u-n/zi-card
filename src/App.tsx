@@ -689,25 +689,6 @@ export default function App() {
     }
   }
 
-  function reorderResultRecordSourceDrafts(record: PracticeResultRecord, nextDrafts: CharacterDraft[]) {
-    if (nextDrafts === record.sourceDrafts) {
-      return;
-    }
-
-    const nextRecord: PracticeResultRecord = {
-      ...record,
-      sourceDrafts: nextDrafts,
-      sourceListIdentity: getCharacterListIdentity(nextDrafts),
-      updatedAt: Date.now(),
-    };
-
-    saveRecentList(nextRecord.sourceDrafts, record.sourceListIdentity);
-    upsertResultHistory(nextRecord);
-    refreshStoredState();
-    setActiveListIdentity(nextRecord.sourceListIdentity);
-    setActiveResultRecordId(nextRecord.id);
-  }
-
   function reorderResultRecordPracticeDrafts(record: PracticeResultRecord, nextDrafts: CharacterDraft[]) {
     if (nextDrafts === record.practiceDrafts) {
       return;
@@ -1014,7 +995,7 @@ export default function App() {
           onEditAnswers={editCurrentAnswers}
           onRestart={restartSetup}
           onReview={reviewMistakes}
-          onReorderItems={reorderResultPracticeItems}
+          onReorderPracticeDrafts={reorderResultPracticeItems}
           onSettingsChange={updateSettings}
           onShareResult={shareCurrentResult}
         />
@@ -1041,7 +1022,6 @@ export default function App() {
           onEditAnswers={editResultRecord}
           onPracticeList={practiceDrafts}
           onReorderPracticeDrafts={reorderResultRecordPracticeDrafts}
-          onReorderSourceDrafts={reorderResultRecordSourceDrafts}
           onSettingsChange={updateSettings}
           onShareResult={(record) => void shareResultRecord(record)}
         />

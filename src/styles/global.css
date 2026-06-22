@@ -1295,6 +1295,10 @@ h2 {
   cursor: grabbing;
 }
 
+.progress-dots[data-dragging="true"] .progress-dots-track {
+  transition: none;
+}
+
 .progress-dots-track {
   width: max-content;
   min-height: 22px;
@@ -1358,10 +1362,22 @@ h2 {
     transform 140ms ease;
 }
 
-.progress-character-chip[data-active="true"] .character-chip {
-  border-color: var(--color-blue);
+.progress-selection-frame {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 50%;
+  width: 56px;
+  height: 56px;
+  border: 2px solid var(--color-blue);
+  border-radius: 8px;
   box-shadow: 0 0 0 3px rgb(63 115 216 / 20%);
-  transform: translateY(-1px);
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.progress-dots[data-with-pinyin="true"] .progress-selection-frame {
+  height: 70px;
 }
 
 .progress-character-chip:focus-visible {
