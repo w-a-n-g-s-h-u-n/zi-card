@@ -6,6 +6,10 @@ import {
   getSelectedPinyinMap,
 } from "./core/characters";
 import {
+  moveItem,
+  preservePinyinsForOrder,
+} from "./core/draftList";
+import {
   createPracticeResultRecord,
   getCharacterListIdentity,
 } from "./core/resultHistory";
@@ -21,6 +25,9 @@ import {
   createPracticeSession,
   createPracticeSessionFromResultRecord,
   createReviewSession,
+  cycleCharacterAssessment,
+  getNextCharacterAssessment,
+  goToIndex,
   goToNext,
   goToPrevious,
   getCurrentResult,
@@ -28,8 +35,11 @@ import {
   prepareSessionForAnswerEditing,
   recordAttempt,
   updateSessionDrafts,
+  updateSessionPracticeDrafts,
 } from "./core/session";
 import { PracticePage } from "./pages/PracticePage";
+import { ImportComparePage } from "./pages/ImportComparePage";
+import { ImportPinyinComparePage } from "./pages/ImportPinyinComparePage";
 import { ResultDetailPage } from "./pages/ResultDetailPage";
 import { ResultHistoryPage } from "./pages/ResultHistoryPage";
 import { ResultPage } from "./pages/ResultPage";
@@ -39,13 +49,17 @@ import {
   DEFAULT_SETTINGS,
   deleteResultHistoryRecord,
   deleteRecentList,
+  getCharacterImportConflict,
   getRecentListKey,
+  getResultImportConflict,
+  importCharacterDrafts,
   importResultHistory,
   readStoredData,
   saveRecentList,
   saveSettings,
   upsertResultHistory,
 } from "./storage/localStorage";
+import type { ImportListConflict, ImportPinyinConflict } from "./storage/localStorage";
 import type { StoredSettings } from "./storage/storageTypes";
 import type { CharacterDraft } from "./types/character";
 import type { PracticeResultRecord } from "./types/result";
@@ -60,8 +74,24 @@ import { extractUniqueCharacters, joinCharacters } from "./utils/text";
 import { recognizeCharacterImages, warmupCharacterOcr } from "./ocr/imageOcr";
 import type { OcrPreviewImage, OcrUiState } from "./types/ocr";
 
-type PageState = "setup" | "practice" | "result" | "resultHistory" | "resultDetail";
+type PageState = "setup" | "practice" | "result" | "resultHistory" | "resultDetail" | "importCompare" | "pinyinCompare";
 type AnswerEditingReturnPage = "result" | "resultDetail";
+type PendingImport =
+  | {
+      kind: "characters";
+      localDrafts: CharacterDraft[];
+      pinyinConflicts: ImportPinyinConflict[];
+      resolvedDrafts: CharacterDraft[];
+      sharedDrafts: CharacterDraft[];
+    }
+  | {
+      kind: "result";
+      localDrafts: CharacterDraft[];
+      pinyinConflicts: ImportPinyinConflict[];
+      record: PracticeResultRecord;
+      resolvedDrafts: CharacterDraft[];
+      sharedDrafts: CharacterDraft[];
+    };
 
 const OCR_IDLE_STATE: OcrUiState = {
   candidateText: "",
@@ -94,26 +124,41 @@ export default function App() {
   const [ocrPreviewImages, setOcrPreviewImages] = useState<OcrPreviewImage[]>([]);
   const [lastOcrFiles, setLastOcrFiles] = useState<File[]>([]);
   const [isSetupPinyinEditing, setIsSetupPinyinEditing] = useState(false);
+  const [pendingImport, setPendingImport] = useState<PendingImport | null>(null);
 
   useEffect(() => {
     let stored = readStoredData();
     const sharedResultRecord = getSharedResultRecordFromUrl(window.location.href);
 
     if (sharedResultRecord) {
-      const importedRecord = importResultHistory(sharedResultRecord);
-      stored = readStoredData();
-      setActiveListIdentity(importedRecord.sourceListIdentity);
-      setActiveResultRecordId(importedRecord.id);
-      setPage("resultDetail");
-      setResultStatus("已导入识字结果");
+      const importConflict = getResultImportConflict(sharedResultRecord);
+
+      if (importConflict) {
+        startPendingImport("result", importConflict, sharedResultRecord);
+      } else {
+        const importedRecord = importResultHistory(sharedResultRecord, { overwriteLocalSourceOrder: false });
+        stored = readStoredData();
+        setActiveListIdentity(importedRecord.sourceListIdentity);
+        setActiveResultRecordId(importedRecord.id);
+        setPage("resultDetail");
+        setResultStatus("已导入识字结果");
+      }
     } else {
       const sharedDrafts = getSharedCharacterDraftsFromUrl(window.location.href);
 
       if (sharedDrafts.length > 0) {
-        setInputText(joinCharacters(sharedDrafts.map((draft) => draft.char)));
-        setSelectedPinyins(getSelectedPinyinMap(sharedDrafts));
-        setIsSetupPinyinEditing(false);
-        setShareStatus("已载入分享字表");
+        const importConflict = getCharacterImportConflict(sharedDrafts);
+
+        if (importConflict) {
+          startPendingImport("characters", importConflict);
+        } else {
+          const importedDrafts = importCharacterDrafts(sharedDrafts, { overwriteLocalDrafts: false });
+          stored = readStoredData();
+          setInputText(joinCharacters(importedDrafts.map((draft) => draft.char)));
+          setSelectedPinyins(getSelectedPinyinMap(importedDrafts));
+          setIsSetupPinyinEditing(false);
+          setShareStatus("已导入分享字表");
+        }
       }
     }
 
@@ -205,6 +250,143 @@ export default function App() {
     setResultHistoriesByListIdentity(stored.resultHistoriesByListIdentity);
   }
 
+  function applyStoredState() {
+    const stored = readStoredData();
+    setSettings(stored.settings);
+    setRecentLists(stored.recentLists);
+    setResultHistoriesByListIdentity(stored.resultHistoriesByListIdentity);
+    return stored;
+  }
+
+  function startPendingImport(
+    kind: "characters",
+    conflict: ImportListConflict,
+  ): void;
+  function startPendingImport(
+    kind: "result",
+    conflict: ImportListConflict,
+    record: PracticeResultRecord,
+  ): void;
+  function startPendingImport(
+    kind: PendingImport["kind"],
+    conflict: ImportListConflict,
+    record?: PracticeResultRecord,
+  ) {
+    const resolvedDrafts = preservePinyinsForOrder(conflict.localDrafts, conflict.localDrafts);
+    const nextPending: PendingImport =
+      kind === "result" && record
+        ? {
+            kind,
+            localDrafts: conflict.localDrafts,
+            pinyinConflicts: conflict.pinyinConflicts,
+            record,
+            resolvedDrafts,
+            sharedDrafts: conflict.sharedDrafts,
+          }
+        : {
+            kind: "characters",
+            localDrafts: conflict.localDrafts,
+            pinyinConflicts: conflict.pinyinConflicts,
+            resolvedDrafts,
+            sharedDrafts: conflict.sharedDrafts,
+          };
+
+    setPendingImport(nextPending);
+    setPage(conflict.orderConflict ? "importCompare" : "pinyinCompare");
+  }
+
+  function completeCharacterImport(resolvedDrafts: CharacterDraft[], status: string) {
+    applyStoredState();
+    setInputText(joinCharacters(resolvedDrafts.map((draft) => draft.char)));
+    setSelectedPinyins(getSelectedPinyinMap(resolvedDrafts));
+    setIsSetupPinyinEditing(false);
+    setPendingImport(null);
+    setPage("setup");
+    setShareStatus(status);
+  }
+
+  function completeResultImport(record: PracticeResultRecord, resolvedSourceDrafts: CharacterDraft[], status: string) {
+    const importedRecord = importResultHistory(record, { resolvedSourceDrafts });
+
+    applyStoredState();
+    setActiveListIdentity(importedRecord.sourceListIdentity);
+    setActiveResultRecordId(importedRecord.id);
+    setPendingImport(null);
+    setPage("resultDetail");
+    setResultStatus(status);
+  }
+
+  function finishPendingImport(resolvedDrafts: CharacterDraft[], status: string) {
+    if (!pendingImport) {
+      return;
+    }
+
+    if (pendingImport.kind === "result") {
+      completeResultImport(pendingImport.record, resolvedDrafts, status);
+      return;
+    }
+
+    completeCharacterImport(resolvedDrafts, status);
+  }
+
+  function resolvePendingImportOrder(useSharedOrder: boolean) {
+    if (!pendingImport) {
+      return;
+    }
+
+    const orderDrafts = useSharedOrder ? pendingImport.sharedDrafts : pendingImport.localDrafts;
+    const resolvedDrafts = preservePinyinsForOrder(orderDrafts, pendingImport.localDrafts);
+
+    importCharacterDrafts(pendingImport.sharedDrafts, { resolvedDrafts });
+    applyStoredState();
+
+    if (pendingImport.pinyinConflicts.length > 0) {
+      setPendingImport({
+        ...pendingImport,
+        resolvedDrafts,
+      });
+      setPage("pinyinCompare");
+      return;
+    }
+
+    finishPendingImport(resolvedDrafts, useSharedOrder ? "已保存分享顺序" : "已保存本地顺序");
+  }
+
+  function resolvePendingImportPinyin(char: string, source: "local" | "shared") {
+    if (!pendingImport) {
+      return;
+    }
+
+    const conflict = pendingImport.pinyinConflicts.find((item) => item.char === char);
+
+    if (!conflict) {
+      return;
+    }
+
+    const pinyin = source === "local" ? conflict.localPinyin : conflict.sharedPinyin;
+    const resolvedDrafts = pendingImport.resolvedDrafts.map((draft) =>
+      draft.char === char ? { ...draft, pinyin } : draft,
+    );
+    const pinyinConflicts = pendingImport.pinyinConflicts.filter((item) => item.char !== char);
+
+    importCharacterDrafts(pendingImport.sharedDrafts, { resolvedDrafts });
+    applyStoredState();
+
+    if (pinyinConflicts.length > 0) {
+      setPendingImport({
+        ...pendingImport,
+        pinyinConflicts,
+        resolvedDrafts,
+      });
+      return;
+    }
+
+    finishPendingImport(
+      resolvedDrafts,
+      pendingImport.kind === "result" ? "已保存读音并导入结果" : "已保存读音并导入字表",
+    );
+  }
+
   function updateInputText(value: string) {
     const nextChars = new Set(getCharacterPreview(value));
     setInputText(value);
@@ -214,15 +396,15 @@ export default function App() {
   }
 
   function updateSelectedPinyin(char: string, pinyin: string) {
+    const nextDrafts = previewDrafts.map((draft) => (draft.char === char ? { ...draft, pinyin } : draft));
+
     setIsSetupPinyinEditing(true);
-    setSelectedPinyins((current) => ({
-      ...current,
-      [char]: pinyin,
-    }));
+    setSelectedPinyins(getSelectedPinyinMap(nextDrafts));
+    persistStoredPreviewDrafts(nextDrafts);
   }
 
   function reorderPreviewItems(fromIndex: number, toIndex: number) {
-    const reorderedDrafts = moveDraft(previewDrafts, fromIndex, toIndex);
+    const reorderedDrafts = moveItem(previewDrafts, fromIndex, toIndex);
 
     if (reorderedDrafts === previewDrafts) {
       return;
@@ -230,6 +412,22 @@ export default function App() {
 
     setInputText(joinCharacters(reorderedDrafts.map((draft) => draft.char)));
     setSelectedPinyins(getSelectedPinyinMap(reorderedDrafts));
+    persistStoredPreviewDrafts(reorderedDrafts);
+  }
+
+  function persistStoredPreviewDrafts(nextDrafts: CharacterDraft[]) {
+    const nextIdentity = getCharacterListIdentity(nextDrafts);
+    const existingKey =
+      editingRecentKey ??
+      (recentLists.some((drafts) => getCharacterListIdentity(drafts) === nextIdentity) ? nextIdentity : null);
+
+    if (!existingKey) {
+      return;
+    }
+
+    saveRecentList(nextDrafts, existingKey);
+    refreshStoredState();
+    setEditingRecentKey(nextIdentity);
   }
 
   async function recognizeImages(files: File[]) {
@@ -369,7 +567,7 @@ export default function App() {
         sourceText: joinCharacters(chars),
         sourceDrafts: drafts,
         items,
-        mode: settings.mode,
+        mode: "flashcard",
         randomOrder: settings.randomOrder,
       }),
     );
@@ -468,7 +666,62 @@ export default function App() {
       return;
     }
 
-    updatePracticeDrafts(moveDraft(session.sourceDrafts, fromIndex, toIndex));
+    updatePracticeDrafts(moveItem(session.sourceDrafts, fromIndex, toIndex));
+  }
+
+  function reorderResultPracticeItems(nextDrafts: CharacterDraft[]) {
+    if (!session) {
+      return;
+    }
+
+    if (nextDrafts === session.practiceDrafts) {
+      return;
+    }
+
+    const nextSession = updateSessionPracticeDrafts(session, nextDrafts);
+    const shouldUpdateSavedResult = page === "result" || activeResultRecordId === nextSession.id;
+
+    setSession(nextSession);
+
+    if (shouldUpdateSavedResult) {
+      upsertResultHistory(createPracticeResultRecord(nextSession));
+      refreshStoredState();
+    }
+  }
+
+  function reorderResultRecordSourceDrafts(record: PracticeResultRecord, nextDrafts: CharacterDraft[]) {
+    if (nextDrafts === record.sourceDrafts) {
+      return;
+    }
+
+    const nextRecord: PracticeResultRecord = {
+      ...record,
+      sourceDrafts: nextDrafts,
+      sourceListIdentity: getCharacterListIdentity(nextDrafts),
+      updatedAt: Date.now(),
+    };
+
+    saveRecentList(nextRecord.sourceDrafts, record.sourceListIdentity);
+    upsertResultHistory(nextRecord);
+    refreshStoredState();
+    setActiveListIdentity(nextRecord.sourceListIdentity);
+    setActiveResultRecordId(nextRecord.id);
+  }
+
+  function reorderResultRecordPracticeDrafts(record: PracticeResultRecord, nextDrafts: CharacterDraft[]) {
+    if (nextDrafts === record.practiceDrafts) {
+      return;
+    }
+
+    const nextRecord: PracticeResultRecord = {
+      ...record,
+      practiceDrafts: nextDrafts,
+      updatedAt: Date.now(),
+    };
+
+    upsertResultHistory(nextRecord);
+    refreshStoredState();
+    setActiveResultRecordId(nextRecord.id);
   }
 
   function saveSessionResult(nextSession: PracticeSession): PracticeResultRecord {
@@ -487,7 +740,7 @@ export default function App() {
     if (settings.soundEnabled) {
       playTone("success");
     }
-    updateSession(recordAttempt(session, "known", undefined, { advance: !getCurrentResult(session) }));
+    updateSession(recordAttempt(session, "known", { advance: !getCurrentResult(session) }));
   }
 
   function markUnknown() {
@@ -497,7 +750,7 @@ export default function App() {
     if (settings.soundEnabled) {
       playTone("soft");
     }
-    updateSession(recordAttempt(session, "unknown", undefined, { advance: !getCurrentResult(session) }));
+    updateSession(recordAttempt(session, "unknown", { advance: !getCurrentResult(session) }));
   }
 
   function markReview() {
@@ -507,27 +760,25 @@ export default function App() {
     if (settings.soundEnabled) {
       playTone("soft");
     }
-    updateSession(recordAttempt(session, "review", undefined, { advance: !getCurrentResult(session) }));
+    updateSession(recordAttempt(session, "review", { advance: !getCurrentResult(session) }));
   }
 
-  function markCorrect() {
+  function cycleAssessment(char: string) {
     if (!session) {
       return;
     }
-    if (settings.soundEnabled) {
-      playTone("success");
-    }
-    updateSession(recordAttempt(session, "correct"));
-  }
 
-  function markWrong(selected: string) {
-    if (!session) {
-      return;
-    }
+    const nextResult = getNextCharacterAssessment(session.results[char]);
+
     if (settings.soundEnabled) {
-      playTone("soft");
+      if (nextResult === "known") {
+        playTone("success");
+      } else if (nextResult) {
+        playTone("soft");
+      }
     }
-    setSession(recordAttempt(session, "wrong", selected));
+
+    setSession(cycleCharacterAssessment(session, char));
   }
 
   function restartSetup() {
@@ -591,7 +842,7 @@ export default function App() {
       return;
     }
 
-    setSession(createReviewSession(session, reviewItems, settings.mode, settings.randomOrder));
+    setSession(createReviewSession(session, reviewItems, "flashcard", settings.randomOrder));
     setAnswerEditingReturnPage(null);
     setResultStatus(null);
     setPage("practice");
@@ -714,23 +965,41 @@ export default function App() {
         />
       ) : null}
 
+      {page === "importCompare" && pendingImport ? (
+        <ImportComparePage
+          importType={pendingImport.kind}
+          localDrafts={pendingImport.localDrafts}
+          sharedDrafts={pendingImport.sharedDrafts}
+          onKeepLocal={() => resolvePendingImportOrder(false)}
+          onUseShared={() => resolvePendingImportOrder(true)}
+        />
+      ) : null}
+
+      {page === "pinyinCompare" && pendingImport ? (
+        <ImportPinyinComparePage
+          importType={pendingImport.kind}
+          conflicts={pendingImport.pinyinConflicts}
+          onSelectPinyin={resolvePendingImportPinyin}
+        />
+      ) : null}
+
       {page === "practice" && session ? (
         <PracticePage
           session={session}
           settings={settings}
-          onCorrect={markCorrect}
           onExit={restartSetup}
           onFinish={finishSession}
+          onCycleAssessment={cycleAssessment}
           onKnown={markKnown}
           onNext={() => setSession(goToNext(session))}
           onPinyinChange={updatePracticeDraftPinyin}
           onPrevious={() => setSession(goToPrevious(session))}
           onReorderDrafts={reorderPracticeDrafts}
           onReview={markReview}
+          onSelectPracticeIndex={(index) => setSession(goToIndex(session, index))}
           onSettingsChange={updateSettings}
           onSpeak={speakCurrent}
           onUnknown={markUnknown}
-          onWrong={markWrong}
         />
       ) : null}
 
@@ -738,11 +1007,15 @@ export default function App() {
         <ResultPage
           actionStatus={resultStatus}
           canContinue={stats.practiced < stats.total}
+          items={session.items}
+          settings={settings}
           stats={stats}
           onContinue={continuePractice}
           onEditAnswers={editCurrentAnswers}
           onRestart={restartSetup}
           onReview={reviewMistakes}
+          onReorderItems={reorderResultPracticeItems}
+          onSettingsChange={updateSettings}
           onShareResult={shareCurrentResult}
         />
       ) : null}
@@ -762,10 +1035,14 @@ export default function App() {
         <ResultDetailPage
           actionStatus={resultStatus}
           record={activeResultRecord}
+          settings={settings}
           onBack={() => setPage("resultHistory")}
           onDelete={deleteResultRecord}
           onEditAnswers={editResultRecord}
           onPracticeList={practiceDrafts}
+          onReorderPracticeDrafts={reorderResultRecordPracticeDrafts}
+          onReorderSourceDrafts={reorderResultRecordSourceDrafts}
+          onSettingsChange={updateSettings}
           onShareResult={(record) => void shareResultRecord(record)}
         />
       ) : null}
@@ -785,24 +1062,6 @@ function mergeCharacterLists(currentChars: string[], nextChars: string[]): strin
     seen.add(char);
     result.push(char);
   }
-
-  return result;
-}
-
-function moveDraft<T>(items: T[], fromIndex: number, toIndex: number): T[] {
-  if (
-    fromIndex === toIndex ||
-    fromIndex < 0 ||
-    toIndex < 0 ||
-    fromIndex >= items.length ||
-    toIndex >= items.length
-  ) {
-    return items;
-  }
-
-  const result = [...items];
-  const [item] = result.splice(fromIndex, 1);
-  result.splice(toIndex, 0, item);
 
   return result;
 }

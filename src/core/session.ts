@@ -85,6 +85,13 @@ export function goToPrevious(session: PracticeSession): PracticeSession {
   };
 }
 
+export function goToIndex(session: PracticeSession, index: number): PracticeSession {
+  return {
+    ...session,
+    currentIndex: Math.min(Math.max(index, 0), Math.max(session.queue.length - 1, 0)),
+  };
+}
+
 export function prepareSessionForAnswerEditing(session: PracticeSession): PracticeSession {
   return {
     ...session,
@@ -100,7 +107,6 @@ export function getCurrentResult(session: PracticeSession): CharacterAssessment 
 export function recordAttempt(
   session: PracticeSession,
   result: PracticeResult,
-  selected?: string,
   options: { advance?: boolean } = {},
 ): PracticeSession {
   const item = getCurrentItem(session);
@@ -121,7 +127,6 @@ export function recordAttempt(
         char: item.char,
         mode: session.mode,
         result,
-        selected,
         at: Date.now(),
       },
     ],
@@ -130,11 +135,69 @@ export function recordAttempt(
   const syncedSession = syncLegacyBuckets(nextSession);
   const shouldAdvance = options.advance ?? true;
 
-  if (result === "wrong" || !shouldAdvance) {
+  if (!shouldAdvance) {
     return syncedSession;
   }
 
   return goToNext(syncedSession);
+}
+
+export function getNextCharacterAssessment(
+  current?: CharacterAssessment,
+): CharacterAssessment | undefined {
+  if (!current) {
+    return "unknown";
+  }
+
+  if (current === "unknown") {
+    return "review";
+  }
+
+  if (current === "review") {
+    return "known";
+  }
+
+  return undefined;
+}
+
+export function setCharacterAssessment(
+  session: PracticeSession,
+  char: string,
+  assessment?: CharacterAssessment,
+): PracticeSession {
+  const item = session.items.find((candidate) => candidate.char === char);
+
+  if (!item) {
+    return session;
+  }
+
+  const results = { ...session.results };
+
+  if (assessment) {
+    results[item.char] = assessment;
+  } else {
+    delete results[item.char];
+  }
+
+  return syncLegacyBuckets({
+    ...session,
+    results,
+    attempts: assessment
+      ? [
+          ...session.attempts,
+          {
+            char: item.char,
+            mode: session.mode,
+            result: assessment,
+            at: Date.now(),
+          },
+        ]
+      : session.attempts,
+  });
+}
+
+export function cycleCharacterAssessment(session: PracticeSession, char: string): PracticeSession {
+  return setCharacterAssessment(session, char, getNextCharacterAssessment(session.results[char]));
 }
 
 export function createReviewSession(
@@ -181,20 +244,35 @@ export function updateSessionDrafts(
   });
 }
 
+export function updateSessionPracticeDrafts(session: PracticeSession, drafts: CharacterDraft[]): PracticeSession {
+  const items = createCharacterItemsFromDrafts(drafts);
+  const itemByChar = new Map(items.map((item) => [item.char, item]));
+  const currentItem = getCurrentItem(session);
+  const isComplete = isSessionComplete(session);
+  const currentIndex = currentItem ? items.findIndex((item) => item.char === currentItem.char) : -1;
+  const results = Object.fromEntries(Object.entries(session.results).filter(([char]) => itemByChar.has(char)));
+
+  return syncLegacyBuckets({
+    ...session,
+    practiceDrafts: createDraftsFromItems(items),
+    items,
+    queue: items,
+    currentIndex: isComplete
+      ? items.length
+      : currentIndex >= 0
+        ? currentIndex
+        : Math.min(session.currentIndex, Math.max(items.length - 1, 0)),
+    results,
+    attempts: session.attempts.filter((attempt) => itemByChar.has(attempt.char)),
+  });
+}
+
 function addUnique(items: string[], char: string): string[] {
   return items.includes(char) ? items : [...items, char];
 }
 
 function toAssessment(result: PracticeResult): CharacterAssessment {
-  if (result === "known" || result === "correct") {
-    return "known";
-  }
-
-  if (result === "unknown") {
-    return "unknown";
-  }
-
-  return "review";
+  return result;
 }
 
 function syncLegacyBuckets(session: PracticeSession): PracticeSession {

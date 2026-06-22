@@ -1,9 +1,10 @@
-import { Home, Save, Settings2 } from "lucide-react";
+import { Home, Save, Settings } from "lucide-react";
 import { useMemo, useState } from "react";
 import { createCharacterPreviewItems, getSelectedPinyinMap } from "../core/characters";
+import { getSessionStats } from "../core/scoring";
 import { getCurrentItem, getCurrentResult } from "../core/session";
 import { FlashcardMode } from "../modes/flashcard/FlashcardMode";
-import { FindCharacterMode } from "../modes/find-character/FindCharacterMode";
+import { MultiCharacterMode } from "../modes/flashcard/MultiCharacterMode";
 import { getModeConfig } from "../modes";
 import type { PracticeSession } from "../types/session";
 import { IconButton } from "../ui/IconButton";
@@ -19,8 +20,8 @@ type PracticePageProps = {
   onKnown: () => void;
   onUnknown: () => void;
   onReview: () => void;
-  onCorrect: () => void;
-  onWrong: (selected: string) => void;
+  onCycleAssessment: (char: string) => void;
+  onSelectPracticeIndex: (index: number) => void;
   onPrevious: () => void;
   onNext: () => void;
   onSpeak: () => void;
@@ -37,8 +38,8 @@ export function PracticePage({
   onKnown,
   onUnknown,
   onReview,
-  onCorrect,
-  onWrong,
+  onCycleAssessment,
+  onSelectPracticeIndex,
   onPrevious,
   onNext,
   onSpeak,
@@ -52,6 +53,8 @@ export function PracticePage({
   const [isPinyinEditing, setIsPinyinEditing] = useState(false);
   const item = getCurrentItem(session);
   const mode = getModeConfig(session.mode);
+  const isMultiDisplay = settings.practiceDisplayMode === "multi";
+  const stats = useMemo(() => getSessionStats(session), [session]);
   const progressNumber = Math.min(session.currentIndex + 1, session.queue.length);
   const previewItems = useMemo(
     () =>
@@ -61,66 +64,65 @@ export function PracticePage({
       ),
     [session.sourceDrafts],
   );
-  const settingsAction = (
-    <IconButton
-      icon={Settings2}
-      label="设置"
-      title="设置"
-      variant="quiet"
-      onClick={() => setIsSettingsOpen(true)}
-    />
-  );
 
   return (
-    <section className="practice-page">
+    <section className="practice-page" data-display-mode={settings.practiceDisplayMode}>
       <header className="practice-header">
         <IconButton icon={Home} label="返回" title="返回" variant="quiet" onClick={onExit} />
         <div className="practice-meta">
-          <span>{mode.label}</span>
+          <span>{isMultiDisplay ? `${mode.label} · 多字` : mode.label}</span>
           <strong>
-            {progressNumber}/{session.queue.length}
+            {isMultiDisplay ? `${stats.practiced}/${stats.total}` : `${progressNumber}/${session.queue.length}`}
           </strong>
         </div>
-        <IconButton icon={Save} label="保存" title="保存" variant="quiet" onClick={onFinish} />
+        <div className="practice-header-actions">
+          <IconButton
+            icon={Settings}
+            label="设置"
+            title="设置"
+            variant="quiet"
+            onClick={() => setIsSettingsOpen(true)}
+          />
+          <IconButton icon={Save} label="保存" title="保存" variant="quiet" onClick={onFinish} />
+        </div>
       </header>
 
-      <ProgressDots
-        current={session.currentIndex}
-        results={session.queue.map((queueItem) => session.results[queueItem.char])}
-        total={session.queue.length}
-      />
-
-      <PracticeLayout>
-        {session.mode === "flashcard" ? (
-          <FlashcardMode
-            canGoNext={session.currentIndex < session.queue.length - 1}
-            canGoPrevious={session.currentIndex > 0}
-            item={item}
-            extraCardAction={settingsAction}
-            selectedResult={getCurrentResult(session)}
+      {isMultiDisplay ? (
+        <MultiCharacterMode
+          items={session.queue}
+          results={session.results}
+          showPinyin={settings.showPinyin}
+          onCycleAssessment={onCycleAssessment}
+        />
+      ) : (
+        <>
+          <ProgressDots
+            characters={session.queue}
+            current={session.currentIndex}
+            onSelect={onSelectPracticeIndex}
+            results={session.queue.map((queueItem) => session.results[queueItem.char])}
+            showCharacters={settings.showCharacterProgress}
             showPinyin={settings.showPinyin}
-            showSpeakButton={settings.soundEnabled}
-            onKnown={onKnown}
-            onNext={onNext}
-            onPrevious={onPrevious}
-            onReview={onReview}
-            onSpeak={onSpeak}
-            onUnknown={onUnknown}
+            total={session.queue.length}
           />
-        ) : (
-          <FindCharacterMode
-            allItems={session.items}
-            item={item}
-            extraCardAction={settingsAction}
-            showPinyin={settings.showPinyin}
-            showSpeakButton={settings.soundEnabled}
-            onCorrect={onCorrect}
-            onSpeak={onSpeak}
-            onUnknown={onUnknown}
-            onWrong={onWrong}
-          />
-        )}
-      </PracticeLayout>
+          <PracticeLayout>
+            <FlashcardMode
+              canGoNext={session.currentIndex < session.queue.length - 1}
+              canGoPrevious={session.currentIndex > 0}
+              item={item}
+              selectedResult={getCurrentResult(session)}
+              showPinyin={settings.showPinyin}
+              showSpeakButton={settings.soundEnabled}
+              onKnown={onKnown}
+              onNext={onNext}
+              onPrevious={onPrevious}
+              onReview={onReview}
+              onSpeak={onSpeak}
+              onUnknown={onUnknown}
+            />
+          </PracticeLayout>
+        </>
+      )}
 
       <PracticeSettingsPanel
         open={isSettingsOpen}

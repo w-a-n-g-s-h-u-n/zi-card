@@ -1,8 +1,11 @@
 import { Pencil, Play, Share2 } from "lucide-react";
 import type { ChangeEvent } from "react";
+import type { StoredSettings } from "../../storage/storageTypes";
 import type { CharacterPreviewItem } from "../../types/character";
 import type { OcrPreviewImage, OcrUiState } from "../../types/ocr";
 import { Button } from "../../ui/Button";
+import { DisplaySettingsButton } from "../../ui/DisplaySettingsButton";
+import { PracticeGeneralSettings } from "../../ui/PracticeGeneralSettings";
 import { CharacterPreviewList } from "./CharacterPreviewList";
 import { ImageOcrPanel } from "./ImageOcrPanel";
 
@@ -12,6 +15,7 @@ type CharacterInputPanelProps = {
   ocrPreviewImages: OcrPreviewImage[];
   ocrState: OcrUiState;
   previewItems: CharacterPreviewItem[];
+  settings: StoredSettings;
   shareStatus: string | null;
   showPinyinChoices: boolean;
   onClearOcr: () => void;
@@ -23,6 +27,7 @@ type CharacterInputPanelProps = {
   onPrepareOcr: () => void;
   onReorderPreviewItems: (fromIndex: number, toIndex: number) => void;
   onRetryOcr: () => void;
+  onSettingsChange: (settings: StoredSettings) => void;
   onShare: () => void;
   onTogglePinyinEdit: () => void;
   onStart: () => void;
@@ -34,6 +39,7 @@ export function CharacterInputPanel({
   ocrPreviewImages,
   ocrState,
   previewItems,
+  settings,
   shareStatus,
   showPinyinChoices,
   onClearOcr,
@@ -45,12 +51,17 @@ export function CharacterInputPanel({
   onPrepareOcr,
   onReorderPreviewItems,
   onRetryOcr,
+  onSettingsChange,
   onShare,
   onTogglePinyinEdit,
   onStart,
 }: CharacterInputPanelProps) {
   const canStart = previewItems.length > 0;
-  const hasPolyphonicPreview = previewItems.some((item) => item.pinyinOptions.length > 1);
+  const polyphonicPreviewCount = previewItems.filter((item) => item.pinyinOptions.length > 1).length;
+  const hasPolyphonicPreview = polyphonicPreviewCount > 0;
+  const previewCountLabel = showPinyinChoices
+    ? `${polyphonicPreviewCount} 个多音字`
+    : `${previewItems.length} 个字`;
 
   return (
     <div className="input-panel">
@@ -83,21 +94,27 @@ export function CharacterInputPanel({
       <div className="preview-panel">
         <div className="preview-heading">
           <span>字表预览</span>
-          <strong>{previewItems.length} 个字</strong>
-          {hasPolyphonicPreview ? (
-            <button
-              className="preview-edit-toggle"
-              data-active={showPinyinChoices}
-              type="button"
-              onClick={onTogglePinyinEdit}
-            >
-              <Pencil aria-hidden="true" size={17} />
-              <span>{showPinyinChoices ? "收起读音" : "编辑读音"}</span>
-            </button>
+          <strong>{previewCountLabel}</strong>
+          {previewItems.length > 0 ? (
+            <DisplaySettingsButton>
+              <PracticeGeneralSettings settings={settings} onSettingsChange={onSettingsChange} />
+              {hasPolyphonicPreview || showPinyinChoices ? (
+                <button
+                  className="preview-edit-toggle"
+                  data-active={showPinyinChoices}
+                  type="button"
+                  onClick={onTogglePinyinEdit}
+                >
+                  <Pencil aria-hidden="true" size={17} />
+                  <span>{showPinyinChoices ? "收起读音" : "编辑读音"}</span>
+                </button>
+              ) : null}
+            </DisplaySettingsButton>
           ) : null}
         </div>
         <CharacterPreviewList
           previewItems={previewItems}
+          showPinyin={settings.showPinyin}
           showPinyinChoices={showPinyinChoices}
           onPinyinChange={onPinyinChange}
           onReorder={onReorderPreviewItems}

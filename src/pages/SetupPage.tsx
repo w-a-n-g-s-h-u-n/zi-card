@@ -85,6 +85,7 @@ export function SetupPage({
           ocrPreviewImages={ocrPreviewImages}
           ocrState={ocrState}
           previewItems={previewItems}
+          settings={settings}
           shareStatus={shareStatus}
           showPinyinChoices={showPinyinChoices}
           onClearOcr={onClearOcr}
@@ -96,6 +97,7 @@ export function SetupPage({
           onPrepareOcr={onPrepareOcr}
           onReorderPreviewItems={onReorderPreviewItems}
           onRetryOcr={onRetryOcr}
+          onSettingsChange={onSettingsChange}
           onShare={onShare}
           onTogglePinyinEdit={onPinyinEditToggle}
           onStart={onStart}

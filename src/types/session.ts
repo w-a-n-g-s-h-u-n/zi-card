@@ -1,14 +1,13 @@
 import type { CharacterDraft, CharacterItem } from "./character";
 import type { PracticeMode } from "./mode";
 
-export type PracticeResult = "known" | "unknown" | "review" | "correct" | "wrong";
+export type PracticeResult = "known" | "unknown" | "review";
 export type CharacterAssessment = "known" | "unknown" | "review";
 
 export type PracticeAttempt = {
   char: string;
   mode: PracticeMode;
   result: PracticeResult;
-  selected?: string;
   at: number;
 };
 

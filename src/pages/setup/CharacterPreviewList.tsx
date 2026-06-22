@@ -10,10 +10,12 @@ import {
 import { rectSortingStrategy, SortableContext, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { CharacterPreviewItem } from "../../types/character";
-import { PolyphonicReadingCharacterChip, SingleReadingCharacterChip } from "./CharacterReadingChip";
+import { SingleReadingCharacterChip } from "./CharacterReadingChip";
+import { PolyphonicReadingEditor } from "./PolyphonicReadingEditor";
 
 type CharacterPreviewListProps = {
   previewItems: CharacterPreviewItem[];
+  showPinyin: boolean;
   showPinyinChoices: boolean;
   onPinyinChange: (char: string, pinyin: string) => void;
   onReorder?: (fromIndex: number, toIndex: number) => void;
@@ -21,11 +23,15 @@ type CharacterPreviewListProps = {
 
 export function CharacterPreviewList({
   previewItems,
+  showPinyin,
   showPinyinChoices,
   onPinyinChange,
   onReorder,
 }: CharacterPreviewListProps) {
   const canReorder = Boolean(onReorder) && previewItems.length > 1 && !showPinyinChoices;
+  const displayItems = showPinyinChoices
+    ? previewItems.filter((item) => item.pinyinOptions.length > 1)
+    : previewItems;
   const sensors = useSensors(
     useSensor(MouseSensor, {
       activationConstraint: {
@@ -57,11 +63,12 @@ export function CharacterPreviewList({
     onReorder?.(fromIndex, toIndex);
   }
 
-  const cards = previewItems.map((item) => (
+  const cards = displayItems.map((item) => (
     <SortablePreviewCard
       canReorder={canReorder}
       item={item}
       key={item.char}
+      showPinyin={showPinyin}
       showPinyinChoices={showPinyinChoices}
       onPinyinChange={onPinyinChange}
     />
@@ -75,11 +82,19 @@ export function CharacterPreviewList({
     );
   }
 
+  if (displayItems.length === 0) {
+    return (
+      <div className="preview-row" aria-label="字表预览">
+        <span className="empty-preview">没有多音字</span>
+      </div>
+    );
+  }
+
   return (
     <div className="preview-row" aria-label="字表预览">
       {canReorder ? (
         <DndContext collisionDetection={closestCenter} sensors={sensors} onDragEnd={handleDragEnd}>
-          <SortableContext items={previewItems.map((item) => item.char)} strategy={rectSortingStrategy}>
+          <SortableContext items={displayItems.map((item) => item.char)} strategy={rectSortingStrategy}>
             {cards}
           </SortableContext>
         </DndContext>
@@ -93,6 +108,7 @@ export function CharacterPreviewList({
 type SortablePreviewCardProps = {
   canReorder: boolean;
   item: CharacterPreviewItem;
+  showPinyin: boolean;
   showPinyinChoices: boolean;
   onPinyinChange: (char: string, pinyin: string) => void;
 };
@@ -100,6 +116,7 @@ type SortablePreviewCardProps = {
 function SortablePreviewCard({
   canReorder,
   item,
+  showPinyin,
   showPinyinChoices,
   onPinyinChange,
 }: SortablePreviewCardProps) {
@@ -109,9 +126,9 @@ function SortablePreviewCard({
   });
   const chip =
     showPinyinChoices && item.pinyinOptions.length > 1 ? (
-      <PolyphonicReadingCharacterChip item={item} onPinyinChange={onPinyinChange} />
+      <PolyphonicReadingEditor item={item} showPinyin={showPinyin} onPinyinChange={onPinyinChange} />
     ) : (
-      <SingleReadingCharacterChip item={item} />
+      <SingleReadingCharacterChip item={item} showPinyin={showPinyin} />
     );
 
   return (

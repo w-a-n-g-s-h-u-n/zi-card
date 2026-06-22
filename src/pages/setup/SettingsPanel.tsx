@@ -1,10 +1,7 @@
 import { Dice5, Trash2 } from "lucide-react";
-import { MODE_CONFIGS, MODE_ICONS } from "../../modes";
 import type { CharacterDraft } from "../../types/character";
 import type { PracticeResultRecord } from "../../types/result";
-import type { PracticeMode } from "../../types/mode";
 import type { StoredSettings } from "../../storage/storageTypes";
-import { SegmentedControl } from "../../ui/SegmentedControl";
 import { Toggle } from "../../ui/Toggle";
 import { RecentListsPanel } from "./RecentListsPanel";
 
@@ -42,17 +39,6 @@ export function SettingsPanel({
 
   return (
     <aside className="settings-panel">
-      <SegmentedControl<PracticeMode>
-        label="练习模式"
-        value={settings.mode}
-        onChange={(mode) => updateSettings({ mode })}
-        options={MODE_CONFIGS.map((config) => ({
-          value: config.id,
-          label: config.shortLabel,
-          icon: MODE_ICONS[config.id],
-        }))}
-      />
-
       <div className="toggle-group">
         <Toggle
           checked={settings.randomOrder}

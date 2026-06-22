@@ -1,4 +1,4 @@
-export type PracticeMode = "flashcard" | "find-character";
+export type PracticeMode = "flashcard";
 
 export type PracticeModeConfig = {
   id: PracticeMode;

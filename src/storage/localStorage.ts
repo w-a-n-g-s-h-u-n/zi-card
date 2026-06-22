@@ -13,6 +13,8 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   randomOrder: false,
   showPinyin: true,
   soundEnabled: true,
+  showCharacterProgress: true,
+  practiceDisplayMode: "single",
   mode: "flashcard",
 };
 
@@ -41,10 +43,7 @@ export function readStoredData(): StoredData {
       version: 2,
       recentLists: normalizeRecentLists(parsed.recentLists),
       resultHistoriesByListIdentity: normalizeResultHistories(parsed.resultHistoriesByListIdentity),
-      settings: {
-        ...DEFAULT_SETTINGS,
-        ...(parsed.settings ?? {}),
-      },
+      settings: normalizeSettings(parsed.settings),
     };
   } catch {
     return DEFAULT_DATA;
@@ -115,20 +114,112 @@ export function upsertResultHistory(record: PracticeResultRecord): void {
   });
 }
 
-export function importResultHistory(record: PracticeResultRecord): PracticeResultRecord {
-  const current = readStoredData();
-  const normalizedRecord = {
-    ...record,
-    sourceListIdentity: getCharacterListIdentity(record.sourceDrafts),
-  };
-  const hasRecentList = current.recentLists.some(
-    (drafts) => getCharacterListIdentity(drafts) === normalizedRecord.sourceListIdentity,
-  );
-  const recentLists = hasRecentList
-    ? current.recentLists
-    : [normalizedRecord.sourceDrafts, ...current.recentLists].slice(0, MAX_RECENT_LISTS);
+type ImportResultHistoryOptions = {
+  overwriteLocalSourceOrder?: boolean;
+  resolvedSourceDrafts?: CharacterDraft[];
+};
 
-  const nextHistories = upsertRecordIntoHistories(current.resultHistoriesByListIdentity, normalizedRecord);
+export type ImportPinyinConflict = {
+  char: string;
+  localPinyin: string;
+  sharedPinyin: string;
+};
+
+export type ImportListConflict = {
+  localDrafts: CharacterDraft[];
+  orderConflict: boolean;
+  pinyinConflicts: ImportPinyinConflict[];
+  sharedDrafts: CharacterDraft[];
+};
+
+type ImportCharacterDraftsOptions = {
+  overwriteLocalDrafts?: boolean;
+  resolvedDrafts?: CharacterDraft[];
+};
+
+export function getCharacterImportConflict(sharedDrafts: CharacterDraft[]): ImportListConflict | null {
+  const current = readStoredData();
+  const listIdentity = getCharacterListIdentity(sharedDrafts);
+  const localDrafts = current.recentLists.find((drafts) => getCharacterListIdentity(drafts) === listIdentity);
+
+  if (!localDrafts) {
+    return null;
+  }
+
+  const orderConflict = !areSameDraftOrder(localDrafts, sharedDrafts);
+  const pinyinConflicts = getPinyinConflicts(localDrafts, sharedDrafts);
+
+  if (!orderConflict && pinyinConflicts.length === 0) {
+    return null;
+  }
+
+  return {
+    localDrafts,
+    orderConflict,
+    pinyinConflicts,
+    sharedDrafts,
+  };
+}
+
+export function getResultImportConflict(record: PracticeResultRecord): ImportListConflict | null {
+  return getCharacterImportConflict(record.sourceDrafts);
+}
+
+export function importCharacterDrafts(
+  sharedDrafts: CharacterDraft[],
+  options: ImportCharacterDraftsOptions = {},
+): CharacterDraft[] {
+  const current = readStoredData();
+  const listIdentity = getCharacterListIdentity(sharedDrafts);
+  const localDrafts = current.recentLists.find((drafts) => getCharacterListIdentity(drafts) === listIdentity);
+  const hasResolvedDrafts = Boolean(options.resolvedDrafts);
+  const shouldOverwriteDrafts = Boolean(localDrafts && (options.overwriteLocalDrafts || hasResolvedDrafts));
+  const importedDrafts = options.resolvedDrafts ?? (localDrafts && !shouldOverwriteDrafts ? localDrafts : sharedDrafts);
+  const recentLists = localDrafts
+    ? current.recentLists.map((drafts) =>
+        getCharacterListIdentity(drafts) === listIdentity && shouldOverwriteDrafts ? importedDrafts : drafts,
+      )
+    : [importedDrafts, ...current.recentLists].slice(0, MAX_RECENT_LISTS);
+  const resultHistoriesByListIdentity = shouldOverwriteDrafts
+    ? normalizeHistoriesToSource(current.resultHistoriesByListIdentity, listIdentity, importedDrafts)
+    : current.resultHistoriesByListIdentity;
+
+  writeStoredData({
+    ...current,
+    recentLists,
+    resultHistoriesByListIdentity: pruneHistoriesToRecentLists(resultHistoriesByListIdentity, recentLists),
+  });
+
+  return importedDrafts;
+}
+
+export function importResultHistory(
+  record: PracticeResultRecord,
+  options: ImportResultHistoryOptions = {},
+): PracticeResultRecord {
+  const current = readStoredData();
+  const sourceListIdentity = getCharacterListIdentity(record.sourceDrafts);
+  const localSourceDrafts = current.recentLists.find((drafts) => getCharacterListIdentity(drafts) === sourceListIdentity);
+  const hasResolvedSourceDrafts = Boolean(options.resolvedSourceDrafts);
+  const shouldOverwriteSourceOrder = Boolean(
+    localSourceDrafts && (options.overwriteLocalSourceOrder || hasResolvedSourceDrafts),
+  );
+  const targetSourceDrafts =
+    options.resolvedSourceDrafts ?? (shouldOverwriteSourceOrder ? record.sourceDrafts : localSourceDrafts);
+  const normalizedRecord = normalizeResultRecordToSource(record, targetSourceDrafts);
+  const hasRecentList = Boolean(localSourceDrafts);
+  const recentLists = hasRecentList
+    ? current.recentLists.map((drafts) =>
+        getCharacterListIdentity(drafts) === sourceListIdentity && shouldOverwriteSourceOrder
+          ? normalizedRecord.sourceDrafts
+          : drafts,
+      )
+    : [normalizedRecord.sourceDrafts, ...current.recentLists].slice(0, MAX_RECENT_LISTS);
+  const baseHistories = shouldOverwriteSourceOrder
+    ? normalizeHistoriesToSource(current.resultHistoriesByListIdentity, sourceListIdentity, normalizedRecord.sourceDrafts)
+    : current.resultHistoriesByListIdentity;
+
+  const nextHistories = upsertRecordIntoHistories(baseHistories, normalizedRecord);
   const savedRecord = getStoredEquivalentRecord(nextHistories, normalizedRecord) ?? normalizedRecord;
 
   writeStoredData({
@@ -138,6 +229,53 @@ export function importResultHistory(record: PracticeResultRecord): PracticeResul
   });
 
   return savedRecord;
+}
+function normalizeResultRecordToSource(
+  record: PracticeResultRecord,
+  sourceDrafts: CharacterDraft[] | undefined,
+): PracticeResultRecord {
+  if (!sourceDrafts) {
+    return {
+      ...record,
+      sourceListIdentity: getCharacterListIdentity(record.sourceDrafts),
+    };
+  }
+
+  return {
+    ...record,
+    sourceDrafts,
+    practiceDrafts: normalizePracticeDraftsToSource(record.practiceDrafts, record.sourceDrafts, sourceDrafts),
+    sourceListIdentity: getCharacterListIdentity(sourceDrafts),
+  };
+}
+
+function normalizePracticeDraftsToSource(
+  practiceDrafts: CharacterDraft[],
+  originalSourceDrafts: CharacterDraft[],
+  sourceDrafts: CharacterDraft[],
+): CharacterDraft[] {
+  if (areSameDraftOrder(practiceDrafts, originalSourceDrafts)) {
+    return sourceDrafts;
+  }
+
+  return practiceDrafts.map((draft) => sourceDrafts.find((sourceDraft) => sourceDraft.char === draft.char) ?? draft);
+}
+
+function normalizeHistoriesToSource(
+  histories: Record<string, PracticeResultRecord[]>,
+  sourceListIdentity: string,
+  sourceDrafts: CharacterDraft[],
+): Record<string, PracticeResultRecord[]> {
+  const records = histories[sourceListIdentity];
+
+  if (!records) {
+    return histories;
+  }
+
+  return {
+    ...histories,
+    [sourceListIdentity]: records.map((record) => normalizeResultRecordToSource(record, sourceDrafts)),
+  };
 }
 
 export function deleteResultHistoryRecord(sourceListIdentity: string, recordId: string): void {
@@ -211,6 +349,22 @@ function normalizeRecentLists(value: unknown): CharacterDraft[][] {
   return recentLists;
 }
 
+function normalizeSettings(value: unknown): StoredSettings {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return DEFAULT_SETTINGS;
+  }
+
+  const settings = value as Partial<StoredSettings>;
+
+  return {
+    ...DEFAULT_SETTINGS,
+    ...settings,
+    showCharacterProgress: settings.showCharacterProgress ?? DEFAULT_SETTINGS.showCharacterProgress,
+    practiceDisplayMode: settings.practiceDisplayMode === "multi" ? "multi" : "single",
+    mode: "flashcard",
+  };
+}
+
 function normalizeResultHistories(value: unknown): Record<string, PracticeResultRecord[]> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
@@ -223,10 +377,10 @@ function normalizeResultHistories(value: unknown): Record<string, PracticeResult
       continue;
     }
 
-    const normalizedRecords = records.filter(isPracticeResultRecord).reduce<PracticeResultRecord[]>(
-      (result, record) => addNormalizedResultRecord(result, record),
-      [],
-    );
+    const normalizedRecords = records
+      .filter(isPracticeResultRecord)
+      .filter((record) => record.sourceListIdentity === identity && getCharacterListIdentity(record.sourceDrafts) === identity)
+      .reduce<PracticeResultRecord[]>((result, record) => addNormalizedResultRecord(result, record), []);
 
     if (normalizedRecords.length === 0) {
       continue;
@@ -277,24 +431,57 @@ function shouldMergeSharedResultRecord(left: PracticeResultRecord, right: Practi
 function areEquivalentResultRecords(left: PracticeResultRecord, right: PracticeResultRecord): boolean {
   return (
     getCharacterListIdentity(left.sourceDrafts) === getCharacterListIdentity(right.sourceDrafts) &&
-    areEquivalentDraftLists(left.sourceDrafts, right.sourceDrafts) &&
-    areEquivalentDraftLists(left.practiceDrafts, right.practiceDrafts) &&
+    areSameDraftListWithReadings(left.sourceDrafts, right.sourceDrafts) &&
+    areSameDraftListWithReadings(left.practiceDrafts, right.practiceDrafts) &&
     areEquivalentPracticeResults(left, right)
   );
 }
 
-function areEquivalentDraftLists(left: CharacterDraft[], right: CharacterDraft[]): boolean {
+function areSameDraftListWithReadings(left: CharacterDraft[], right: CharacterDraft[]): boolean {
   return (
     left.length === right.length &&
     left.every((draft, index) => {
       const rightDraft = right[index];
 
-      return (
-        Boolean(rightDraft) &&
-        draft.char === rightDraft.char &&
-        resolveCharacterPinyin(draft.char, draft.pinyin) === resolveCharacterPinyin(rightDraft.char, rightDraft.pinyin)
-      );
+      return Boolean(rightDraft) && areSameDraftWithReading(draft, rightDraft);
     })
+  );
+}
+
+function areSameDraftOrder(left: CharacterDraft[], right: CharacterDraft[]): boolean {
+  return left.length === right.length && left.every((draft, index) => draft.char === right[index]?.char);
+}
+
+function getPinyinConflicts(localDrafts: CharacterDraft[], sharedDrafts: CharacterDraft[]): ImportPinyinConflict[] {
+  const localDraftsByChar = new Map(localDrafts.map((draft) => [draft.char, draft]));
+  const conflicts: ImportPinyinConflict[] = [];
+
+  for (const sharedDraft of sharedDrafts) {
+    const localDraft = localDraftsByChar.get(sharedDraft.char);
+
+    if (!localDraft) {
+      continue;
+    }
+
+    const localPinyin = resolveCharacterPinyin(localDraft.char, localDraft.pinyin) ?? "";
+    const sharedPinyin = resolveCharacterPinyin(sharedDraft.char, sharedDraft.pinyin) ?? "";
+
+    if (localPinyin !== sharedPinyin) {
+      conflicts.push({
+        char: sharedDraft.char,
+        localPinyin,
+        sharedPinyin,
+      });
+    }
+  }
+
+  return conflicts;
+}
+
+function areSameDraftWithReading(left: CharacterDraft, right: CharacterDraft): boolean {
+  return (
+    left.char === right.char &&
+    resolveCharacterPinyin(left.char, left.pinyin) === resolveCharacterPinyin(right.char, right.pinyin)
   );
 }
 
@@ -335,7 +522,7 @@ function isPracticeResultRecord(value: unknown): value is PracticeResultRecord {
     record.sourceDrafts.every(isCharacterDraft) &&
     Array.isArray(record.practiceDrafts) &&
     record.practiceDrafts.every(isCharacterDraft) &&
-    (record.mode === "flashcard" || record.mode === "find-character") &&
+    record.mode === "flashcard" &&
     (record.round === "main" || record.round === "review") &&
     typeof record.createdAt === "number" &&
     typeof record.updatedAt === "number" &&

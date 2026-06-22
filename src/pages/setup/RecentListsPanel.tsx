@@ -45,15 +45,15 @@ export function RecentListsPanel({
             return (
               <div className="recent-item" data-editing={editingRecentKey === key} key={key}>
                 <button
-                  className="recent-main-action"
+                  aria-label={`编辑字表 ${text}`}
+                  className="recent-card-action"
                   title="编辑字表"
                   type="button"
                   onClick={() => onEditRecent(drafts)}
-                >
-                  <span className="recent-characters" aria-label={text}>
-                    {text}
-                  </span>
-                </button>
+                />
+                <span className="recent-characters" aria-label={text}>
+                  {text}
+                </span>
                 <small className="recent-meta">
                   <span>{drafts.length} 字</span>
                   {historySummary ? <span>{historySummary}</span> : null}

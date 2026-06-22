@@ -1,8 +1,6 @@
 import type { CharacterDraft, CharacterItem } from "../types/character";
 import type { PracticeResultRecord } from "../types/result";
 import type { PracticeSession, SessionStats } from "../types/session";
-import { resolveCharacterPinyin } from "./pinyin";
-
 type ResultDraftGroups = {
   knownDrafts: CharacterDraft[];
   unknownDrafts: CharacterDraft[];
@@ -12,16 +10,14 @@ type ResultDraftGroups = {
 };
 
 export function getCharacterListIdentity(drafts: CharacterDraft[]): string {
-  const normalized = new Map<string, string>();
+  const chars = new Set<string>();
 
   for (const draft of drafts) {
-    const pinyin = resolveCharacterPinyin(draft.char, draft.pinyin) ?? "";
-    normalized.set(draft.char, pinyin);
+    chars.add(draft.char);
   }
 
-  return `v1:${Array.from(normalized.entries())
-    .sort(([charA, pinyinA], [charB, pinyinB]) => `${charA}:${pinyinA}`.localeCompare(`${charB}:${pinyinB}`))
-    .map(([char, pinyin]) => `${char}:${pinyin}`)
+  return `v2:${Array.from(chars)
+    .sort((charA, charB) => charA.localeCompare(charB))
     .join("|")}`;
 }
 

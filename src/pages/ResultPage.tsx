@@ -1,31 +1,47 @@
 import { AlertCircle, Check, Home, ListChecks, PencilLine, RotateCcw, Share2, Target } from "lucide-react";
+import { createDraftsFromCharacterItems, reorderWithinCharacterSubset } from "../core/draftList";
+import type { CharacterDraft, CharacterItem } from "../types/character";
 import type { SessionStats } from "../types/session";
+import type { StoredSettings } from "../storage/storageTypes";
 import { Button } from "../ui/Button";
+import type { CharacterChipTone } from "../ui/CharacterChip";
+import { DisplaySettingsButton } from "../ui/DisplaySettingsButton";
+import { PracticeGeneralSettings } from "../ui/PracticeGeneralSettings";
+import { ResultCharacterChipList } from "../ui/ResultCharacterChipList";
 import { ResultBadge } from "../ui/ResultBadge";
 
 type ResultPageProps = {
   actionStatus: string | null;
   canContinue: boolean;
+  items: CharacterItem[];
+  settings: StoredSettings;
   stats: SessionStats;
   onContinue: () => void;
   onEditAnswers: () => void;
   onRestart: () => void;
   onReview: () => void;
+  onReorderItems: (drafts: CharacterDraft[]) => void;
+  onSettingsChange: (settings: StoredSettings) => void;
   onShareResult: () => void;
 };
 
 export function ResultPage({
   actionStatus,
   canContinue,
+  items,
+  settings,
   stats,
   onContinue,
   onEditAnswers,
   onRestart,
   onReview,
+  onReorderItems,
+  onSettingsChange,
   onShareResult,
 }: ResultPageProps) {
   const headline = getResultHeadline(stats, canContinue);
   const primaryAction = getPrimaryAction(stats, canContinue, onContinue, onReview, onRestart);
+  const pinyinByChar = new Map(items.map((item) => [item.char, item.pinyin]));
 
   return (
     <main className="result-page">
@@ -37,9 +53,14 @@ export function ResultPage({
             已练 {stats.practiced} / 共 {stats.total}
           </p>
         </div>
-        <div className="result-rate" aria-label={`通过率 ${stats.passRate}%`}>
-          <strong>{stats.passRate}%</strong>
-          <span>通过率</span>
+        <div className="result-summary-side">
+          <DisplaySettingsButton>
+            <PracticeGeneralSettings settings={settings} onSettingsChange={onSettingsChange} />
+          </DisplaySettingsButton>
+          <div className="result-rate" aria-label={`通过率 ${stats.passRate}%`}>
+            <strong>{stats.passRate}%</strong>
+            <span>通过率</span>
+          </div>
         </div>
       </section>
 
@@ -82,20 +103,35 @@ export function ResultPage({
           chars={stats.unknownChars}
           emptyText="没有错误字"
           label="错误"
+          pinyinByChar={pinyinByChar}
+          showPinyin={settings.showPinyin}
           tone="red"
+          onReorder={(fromIndex, toIndex) =>
+            onReorderItems(reorderResultDrafts(items, stats.unknownChars, fromIndex, toIndex))
+          }
         />
         <ResultCharacterGroup
           chars={stats.reviewOnlyChars}
           emptyText="没有巩固字"
           label="巩固"
+          pinyinByChar={pinyinByChar}
+          showPinyin={settings.showPinyin}
           tone="yellow"
+          onReorder={(fromIndex, toIndex) =>
+            onReorderItems(reorderResultDrafts(items, stats.reviewOnlyChars, fromIndex, toIndex))
+          }
         />
         {stats.unansweredChars.length > 0 ? (
           <ResultCharacterGroup
             chars={stats.unansweredChars}
             emptyText=""
             label="未练"
+            pinyinByChar={pinyinByChar}
+            showPinyin={settings.showPinyin}
             tone="neutral"
+            onReorder={(fromIndex, toIndex) =>
+              onReorderItems(reorderResultDrafts(items, stats.unansweredChars, fromIndex, toIndex))
+            }
           />
         ) : null}
       </section>
@@ -105,7 +141,17 @@ export function ResultPage({
           <p className="result-section-kicker">已经通过</p>
           <h2 id="known-title">正确字 {stats.knownCount}</h2>
         </div>
-        <ResultCharacterGroup chars={stats.knownChars} emptyText="还没有正确字" label="正确" tone="green" />
+        <ResultCharacterGroup
+          chars={stats.knownChars}
+          emptyText="还没有正确字"
+          label="正确"
+          pinyinByChar={pinyinByChar}
+          showPinyin={settings.showPinyin}
+          tone="green"
+          onReorder={(fromIndex, toIndex) =>
+            onReorderItems(reorderResultDrafts(items, stats.knownChars, fromIndex, toIndex))
+          }
+        />
       </section>
     </main>
   );
@@ -160,30 +206,46 @@ function ResultCharacterGroup({
   chars,
   emptyText,
   label,
+  onReorder,
+  pinyinByChar,
+  showPinyin,
   tone,
 }: {
   chars: string[];
   emptyText: string;
   label: string;
-  tone: "red" | "yellow" | "green" | "neutral";
+  onReorder: (fromIndex: number, toIndex: number) => void;
+  pinyinByChar: Map<string, string | undefined>;
+  showPinyin: boolean;
+  tone: CharacterChipTone;
 }) {
+  const drafts = chars.map((char) => ({
+    char,
+    pinyin: pinyinByChar.get(char),
+  }));
+
   return (
     <div className="result-character-group" data-tone={tone}>
       <div className="result-group-title">
         <span>{label}</span>
         <strong>{chars.length}</strong>
       </div>
-      <div className="result-chip-row">
-        {chars.length === 0 ? (
-          <span className="empty-preview">{emptyText}</span>
-        ) : (
-          chars.map((char) => (
-            <span className="result-char-chip" data-tone={tone} key={char}>
-              {char}
-            </span>
-          ))
-        )}
-      </div>
+      <ResultCharacterChipList
+        drafts={drafts}
+        emptyText={emptyText}
+        showPinyin={showPinyin}
+        tone={tone}
+        onReorder={onReorder}
+      />
     </div>
   );
+}
+
+function reorderResultDrafts(
+  items: CharacterItem[],
+  chars: string[],
+  fromIndex: number,
+  toIndex: number,
+): CharacterDraft[] {
+  return createDraftsFromCharacterItems(reorderWithinCharacterSubset(items, chars, fromIndex, toIndex));
 }
