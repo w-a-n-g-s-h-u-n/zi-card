@@ -989,7 +989,9 @@ export default function App() {
           actionStatus={resultStatus}
           canContinue={stats.practiced < stats.total}
           items={session.items}
+          practiceDrafts={session.practiceDrafts}
           settings={settings}
+          sourceDrafts={session.sourceDrafts}
           stats={stats}
           onContinue={continuePractice}
           onEditAnswers={editCurrentAnswers}

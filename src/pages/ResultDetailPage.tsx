@@ -10,6 +10,7 @@ import { DisplaySettingsButton } from "../ui/DisplaySettingsButton";
 import { PracticeGeneralSettings } from "../ui/PracticeGeneralSettings";
 import { ResultCharacterChipList } from "../ui/ResultCharacterChipList";
 import { ResultBadge } from "../ui/ResultBadge";
+import { ResultDraftPanel } from "../ui/ResultDraftPanel";
 
 type ResultDetailPageProps = {
   actionStatus: string | null;
@@ -164,36 +165,29 @@ export function ResultDetailPage({
         />
       </section>
 
-      <section className="result-panel detail-source-panel" aria-labelledby="detail-source-title">
-        <div>
-          <p className="result-section-kicker">原始字表</p>
-          <h2 id="detail-source-title">全部 {record.sourceDrafts.length}</h2>
-        </div>
-        <ResultDraftGroup
-          drafts={record.sourceDrafts}
-          emptyText="原始字表为空"
-          label="原始"
-          showPinyin={settings.showPinyin}
-          tone="neutral"
-        />
-      </section>
+      <ResultDraftPanel
+        className="result-practice-list-panel"
+        drafts={record.practiceDrafts}
+        emptyText="本轮字表为空"
+        kicker="本轮字表"
+        label="本轮"
+        showPinyin={settings.showPinyin}
+        title="本轮"
+        onReorder={(fromIndex, toIndex) =>
+          onReorderPracticeDrafts(record, moveItem(record.practiceDrafts, fromIndex, toIndex))
+        }
+      />
 
-      <section className="result-panel detail-practice-panel" aria-labelledby="detail-practice-title">
-        <div>
-          <p className="result-section-kicker">本轮练习字</p>
-          <h2 id="detail-practice-title">本轮 {record.practiceDrafts.length}</h2>
-        </div>
-        <ResultDraftGroup
-          drafts={record.practiceDrafts}
-          emptyText="本轮字表为空"
-          label="本轮"
-          showPinyin={settings.showPinyin}
-          tone="neutral"
-          onReorder={(fromIndex, toIndex) =>
-            onReorderPracticeDrafts(record, moveItem(record.practiceDrafts, fromIndex, toIndex))
-          }
-        />
-      </section>
+      <ResultDraftPanel
+        className="result-source-list-panel"
+        drafts={record.sourceDrafts}
+        emptyText="完整字表为空"
+        kicker="完整字表"
+        label="完整"
+        showPinyin={settings.showPinyin}
+        title="全部"
+      />
+
     </main>
   );
 }

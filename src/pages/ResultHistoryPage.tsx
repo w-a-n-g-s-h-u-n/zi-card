@@ -1,9 +1,9 @@
-import { AlertCircle, ArrowLeft, BookOpenText, Check, ClipboardList, Eye, Target, Trash2 } from "lucide-react";
-import { getResultRecordStats } from "../core/resultHistory";
+import { ArrowLeft, BookOpenText, ClipboardList, Eye, Trash2 } from "lucide-react";
+import { getResultRecordDraftGroups, getResultRecordStats } from "../core/resultHistory";
 import type { CharacterDraft } from "../types/character";
 import type { PracticeResultRecord } from "../types/result";
 import { Button } from "../ui/Button";
-import { ResultBadge } from "../ui/ResultBadge";
+import { CharacterChip, type CharacterChipTone } from "../ui/CharacterChip";
 import { joinCharacters } from "../utils/text";
 
 type ResultHistoryPageProps = {
@@ -50,9 +50,17 @@ export function ResultHistoryPage({
         <section className="history-list" aria-label="识字结果历史">
           {records.map((record) => {
             const stats = getResultRecordStats(record);
+            const previewItems = getHistoryPreviewItems(record);
 
             return (
               <article className="history-record" key={record.id}>
+                <button
+                  aria-label={`查看 ${formatDateTime(record.updatedAt)} 的识字结果详情`}
+                  className="history-card-action"
+                  title="查看详情"
+                  type="button"
+                  onClick={() => onOpenRecord(record)}
+                />
                 <div className="history-record-main">
                   <div>
                     <p className="history-record-date">{formatDateTime(record.updatedAt)}</p>
@@ -62,18 +70,53 @@ export function ResultHistoryPage({
                   </div>
                   <div className="history-record-rate">{stats.passRate}%</div>
                 </div>
-                <div className="history-record-stats" aria-label="结果统计">
-                  <ResultBadge icon={AlertCircle} label="错误" tone="red" value={stats.unknownCount} />
-                  <ResultBadge icon={Target} label="巩固" tone="yellow" value={stats.reviewOnlyCount} />
-                  <ResultBadge icon={Check} label="正确" tone="green" value={stats.knownCount} />
+                <div className="history-record-preview" aria-label="待关注预览">
+                  {previewItems.items.length > 0 ? (
+                    <>
+                      {previewItems.items.map((item) => (
+                        <CharacterChip
+                          char={item.draft.char}
+                          key={`${item.tone}-${item.draft.char}`}
+                          pinyin={item.draft.pinyin}
+                          showPinyin={false}
+                          tone={item.tone}
+                          variant="result"
+                        />
+                      ))}
+                      {previewItems.hiddenCount > 0 ? (
+                        <span className="history-preview-more">+{previewItems.hiddenCount}</span>
+                      ) : null}
+                    </>
+                  ) : (
+                    <span className="history-preview-empty">没有待关注字</span>
+                  )}
                 </div>
-                <div className="history-record-actions">
-                  <Button icon={Eye} variant="quiet" onClick={() => onOpenRecord(record)}>
-                    查看详情
-                  </Button>
-                  <Button icon={Trash2} variant="danger" onClick={() => onDeleteRecord(record)}>
-                    删除
-                  </Button>
+                <div className="history-record-footer">
+                  <div className="history-record-stats" aria-label="结果统计">
+                    <span data-tone="red">错 {stats.unknownCount}</span>
+                    <span data-tone="yellow">巩固 {stats.reviewOnlyCount}</span>
+                    <span data-tone="green">对 {stats.knownCount}</span>
+                  </div>
+                  <div className="history-record-actions">
+                    <button
+                      aria-label={`查看 ${formatDateTime(record.updatedAt)} 的识字结果详情`}
+                      className="recent-icon-action"
+                      title="查看详情"
+                      type="button"
+                      onClick={() => onOpenRecord(record)}
+                    >
+                      <Eye aria-hidden="true" size={18} />
+                    </button>
+                    <button
+                      aria-label={`删除 ${formatDateTime(record.updatedAt)} 的识字结果`}
+                      className="recent-icon-action recent-icon-action--danger"
+                      title="删除"
+                      type="button"
+                      onClick={() => onDeleteRecord(record)}
+                    >
+                      <Trash2 aria-hidden="true" size={18} />
+                    </button>
+                  </div>
                 </div>
               </article>
             );
@@ -82,6 +125,28 @@ export function ResultHistoryPage({
       )}
     </main>
   );
+}
+
+const HISTORY_PREVIEW_LIMIT = 6;
+
+type HistoryPreviewItem = {
+  draft: CharacterDraft;
+  tone: CharacterChipTone;
+};
+
+function getHistoryPreviewItems(record: PracticeResultRecord): {
+  hiddenCount: number;
+  items: HistoryPreviewItem[];
+} {
+  const groups = getResultRecordDraftGroups(record);
+  const unknownItems = groups.unknownDrafts.map<HistoryPreviewItem>((draft) => ({ draft, tone: "red" }));
+  const reviewItems = groups.reviewOnlyDrafts.map<HistoryPreviewItem>((draft) => ({ draft, tone: "yellow" }));
+  const allItems = [...unknownItems, ...reviewItems];
+
+  return {
+    hiddenCount: Math.max(allItems.length - HISTORY_PREVIEW_LIMIT, 0),
+    items: allItems.slice(0, HISTORY_PREVIEW_LIMIT),
+  };
 }
 
 function formatDateTime(value: number): string {

@@ -1,5 +1,5 @@
 import { AlertCircle, Check, Home, ListChecks, PencilLine, RotateCcw, Share2, Target } from "lucide-react";
-import { createDraftsFromCharacterItems, reorderWithinCharacterSubset } from "../core/draftList";
+import { createDraftsFromCharacterItems, moveItem, reorderWithinCharacterSubset } from "../core/draftList";
 import type { CharacterDraft, CharacterItem } from "../types/character";
 import type { SessionStats } from "../types/session";
 import type { StoredSettings } from "../storage/storageTypes";
@@ -9,12 +9,15 @@ import { DisplaySettingsButton } from "../ui/DisplaySettingsButton";
 import { PracticeGeneralSettings } from "../ui/PracticeGeneralSettings";
 import { ResultCharacterChipList } from "../ui/ResultCharacterChipList";
 import { ResultBadge } from "../ui/ResultBadge";
+import { ResultDraftPanel } from "../ui/ResultDraftPanel";
 
 type ResultPageProps = {
   actionStatus: string | null;
   canContinue: boolean;
   items: CharacterItem[];
+  practiceDrafts: CharacterDraft[];
   settings: StoredSettings;
+  sourceDrafts: CharacterDraft[];
   stats: SessionStats;
   onContinue: () => void;
   onEditAnswers: () => void;
@@ -29,7 +32,9 @@ export function ResultPage({
   actionStatus,
   canContinue,
   items,
+  practiceDrafts,
   settings,
+  sourceDrafts,
   stats,
   onContinue,
   onEditAnswers,
@@ -153,6 +158,27 @@ export function ResultPage({
           }
         />
       </section>
+
+      <ResultDraftPanel
+        className="result-practice-list-panel"
+        drafts={practiceDrafts}
+        emptyText="本轮字表为空"
+        kicker="本轮字表"
+        label="本轮"
+        showPinyin={settings.showPinyin}
+        title="本轮"
+        onReorder={(fromIndex, toIndex) => onReorderPracticeDrafts(moveResultDraft(practiceDrafts, fromIndex, toIndex))}
+      />
+
+      <ResultDraftPanel
+        className="result-source-list-panel"
+        drafts={sourceDrafts}
+        emptyText="完整字表为空"
+        kicker="完整字表"
+        label="完整"
+        showPinyin={settings.showPinyin}
+        title="全部"
+      />
     </main>
   );
 }
@@ -248,4 +274,8 @@ function reorderResultDrafts(
   toIndex: number,
 ): CharacterDraft[] {
   return createDraftsFromCharacterItems(reorderWithinCharacterSubset(items, chars, fromIndex, toIndex));
+}
+
+function moveResultDraft(drafts: CharacterDraft[], fromIndex: number, toIndex: number): CharacterDraft[] {
+  return moveItem(drafts, fromIndex, toIndex);
 }

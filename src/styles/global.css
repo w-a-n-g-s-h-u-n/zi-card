@@ -212,6 +212,7 @@ button {
   min-height: calc(100dvh - 34px);
   margin: 0 auto;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-content: center;
   gap: 18px;
 }
@@ -1091,6 +1092,7 @@ h2 {
 .pinyin-choice:focus-visible,
 .preview-edit-toggle:focus-visible,
 .recent-card-action:focus-visible,
+.history-card-action:focus-visible,
 .recent-icon-action:focus-visible,
 .clear-cache-button:focus-visible {
   outline: 3px solid #0f6f66;
@@ -1134,6 +1136,7 @@ h2 {
 .app-error-fallback button:active,
 .segment:active,
 .recent-card-action:active,
+.history-card-action:active,
 .recent-icon-action:active,
 .clear-cache-button:active {
   transform: scale(0.98);
@@ -1712,7 +1715,9 @@ h2 {
     "stats"
     "actions"
     "review"
-    "known";
+    "known"
+    "practice"
+    "source";
   gap: 12px;
 }
 
@@ -1723,8 +1728,8 @@ h2 {
     "actions"
     "review"
     "known"
-    "source"
-    "practice";
+    "practice"
+    "source";
 }
 
 .result-history-page {
@@ -2043,12 +2048,53 @@ h2 {
   grid-area: known;
 }
 
-.detail-source-panel {
+.result-source-list-panel {
   grid-area: source;
 }
 
-.detail-practice-panel {
+.result-practice-list-panel {
   grid-area: practice;
+}
+
+.result-draft-panel {
+  gap: 0;
+}
+
+.result-draft-panel[open] {
+  gap: 14px;
+}
+
+.result-draft-summary {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.result-draft-summary::-webkit-details-marker {
+  display: none;
+}
+
+.result-draft-summary h2 {
+  margin: 2px 0 0;
+  font-size: 1.05rem;
+  color: var(--color-ink);
+}
+
+.result-draft-disclosure {
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid var(--color-muted);
+  border-bottom: 2px solid var(--color-muted);
+  transform: rotate(45deg);
+  transition: transform 160ms ease;
+}
+
+.result-draft-panel[open] .result-draft-disclosure {
+  transform: rotate(225deg);
 }
 
 .result-panel-header {
@@ -2150,12 +2196,17 @@ h2 {
 }
 
 .history-hero {
+  min-width: 0;
   min-height: 104px;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   padding: 14px;
+}
+
+.history-hero > div {
+  min-width: 0;
 }
 
 .history-source {
@@ -2180,21 +2231,46 @@ h2 {
 
 .history-list {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .history-record {
+  position: relative;
+  min-height: 116px;
   display: grid;
-  gap: 12px;
-  padding: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "main main"
+    "preview preview"
+    "stats actions";
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 6px;
+  padding: 6px;
+}
+
+.history-card-action {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: 8px;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
 }
 
 .history-record-main {
+  grid-area: main;
+  position: relative;
+  z-index: 1;
   min-width: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  padding: 2px 4px 0;
+  pointer-events: none;
 }
 
 .history-record-date {
@@ -2210,8 +2286,8 @@ h2 {
 }
 
 .history-record-rate {
-  min-width: 66px;
-  min-height: 48px;
+  min-width: 58px;
+  min-height: 42px;
   display: grid;
   place-items: center;
   border-radius: 8px;
@@ -2222,20 +2298,105 @@ h2 {
 }
 
 .history-record-stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  grid-area: stats;
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 0.71rem;
+  font-weight: 760;
+  pointer-events: none;
 }
 
-.history-record-stats .result-badge {
-  min-height: 62px;
-  padding: 8px;
+.history-record-stats span {
+  min-width: 0;
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #d8e4ed;
+  border-radius: 8px;
+  padding: 0 8px;
+  background: #f7fafc;
+  color: var(--color-muted);
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-record-stats span[data-tone="red"] {
+  border-color: #f4c7c1;
+  background: var(--color-coral-soft);
+  color: #9a3330;
+}
+
+.history-record-stats span[data-tone="yellow"] {
+  border-color: #f2d59a;
+  background: var(--color-yellow-soft);
+  color: #7a5200;
+}
+
+.history-record-stats span[data-tone="green"] {
+  border-color: #bfe2d9;
+  background: var(--color-primary-soft);
+  color: var(--color-primary-strong);
+}
+
+.history-record-preview {
+  grid-area: preview;
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  padding: 0 4px;
+  pointer-events: none;
+}
+
+.history-record-preview .character-chip {
+  --character-chip-size: 42px;
+  --character-chip-width: var(--character-chip-size);
+  --character-chip-char-size: 1.42rem;
+}
+
+.history-preview-more,
+.history-preview-empty {
+  min-height: 34px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0 9px;
+  background: #f8fbff;
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.history-record-footer {
+  display: contents;
 }
 
 .history-record-actions {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 8px;
+  grid-area: actions;
+  position: relative;
+  z-index: 2;
+  min-width: 0;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border: 1px solid #d8e4ed;
+  border-radius: 8px;
+  padding: 1px;
+  background: #f7fafc;
 }
 
 @media (min-width: 760px) {
@@ -2250,7 +2411,9 @@ h2 {
     grid-template-areas:
       "summary stats"
       "actions review"
-      ". known";
+      ". known"
+      ". practice"
+      ". source";
     align-items: start;
   }
 
@@ -2258,8 +2421,9 @@ h2 {
     grid-template-areas:
       "summary stats"
       "actions review"
-      "source known"
-      "practice known";
+      ". known"
+      ". practice"
+      ". source";
   }
 
   .import-compare-grid {
@@ -2282,6 +2446,16 @@ h2 {
 
   .practice-toggle-group {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 759px) {
+  .history-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .history-hero .ui-button {
+    width: 100%;
   }
 }
 
@@ -2331,14 +2505,6 @@ h2 {
 
   .import-compare-actions {
     grid-template-columns: 1fr;
-  }
-
-  .history-hero {
-    grid-template-columns: 1fr;
-  }
-
-  .history-hero .ui-button {
-    width: 100%;
   }
 
   .result-grid {
