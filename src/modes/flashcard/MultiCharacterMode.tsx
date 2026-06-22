@@ -100,15 +100,15 @@ function getAssessmentTone(result?: CharacterAssessment): CharacterChipTone {
 
 function getNextAssessmentLabel(result?: CharacterAssessment): string {
   if (!result) {
+    return "正确";
+  }
+
+  if (result === "known") {
     return "错误";
   }
 
   if (result === "unknown") {
     return "巩固";
-  }
-
-  if (result === "review") {
-    return "正确";
   }
 
   return "未判";

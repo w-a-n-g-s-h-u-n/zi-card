@@ -68,7 +68,7 @@ import { playTone } from "./speech/soundEffects";
 import { prepareSpeechSynthesis, speakCharacter } from "./speech/speechSynthesis";
 import { copyText } from "./utils/clipboard";
 import { notifyAppError } from "./utils/errorNotifications";
-import { loadHandwritingFont } from "./utils/handwritingFont";
+import { loadCharacterFont } from "./utils/characterFont";
 import { useRemoteFocusNavigation } from "./utils/remoteFocus";
 import { extractUniqueCharacters, joinCharacters } from "./utils/text";
 import { recognizeCharacterImages, warmupCharacterOcr } from "./ocr/imageOcr";
@@ -76,6 +76,7 @@ import type { OcrPreviewImage, OcrUiState } from "./types/ocr";
 
 type PageState = "setup" | "practice" | "result" | "resultHistory" | "resultDetail" | "importCompare" | "pinyinCompare";
 type AnswerEditingReturnPage = "result" | "resultDetail";
+type OcrAvailability = "loading" | "ready" | "failed";
 type PendingImport =
   | {
       kind: "characters";
@@ -114,6 +115,7 @@ export default function App() {
     Record<string, PracticeResultRecord[]>
   >({});
   const [editingRecentKey, setEditingRecentKey] = useState<string | null>(null);
+  const [isEditingSelectedRecent, setIsEditingSelectedRecent] = useState(false);
   const [shareStatus, setShareStatus] = useState<string | null>(null);
   const [resultStatus, setResultStatus] = useState<string | null>(null);
   const [session, setSession] = useState<PracticeSession | null>(null);
@@ -121,6 +123,7 @@ export default function App() {
   const [activeListIdentity, setActiveListIdentity] = useState<string | null>(null);
   const [activeResultRecordId, setActiveResultRecordId] = useState<string | null>(null);
   const [ocrState, setOcrState] = useState<OcrUiState>(OCR_IDLE_STATE);
+  const [ocrAvailability, setOcrAvailability] = useState<OcrAvailability>("loading");
   const [ocrPreviewImages, setOcrPreviewImages] = useState<OcrPreviewImage[]>([]);
   const [lastOcrFiles, setLastOcrFiles] = useState<File[]>([]);
   const [isSetupPinyinEditing, setIsSetupPinyinEditing] = useState(false);
@@ -166,9 +169,23 @@ export default function App() {
     setRecentLists(stored.recentLists);
     setResultHistoriesByListIdentity(stored.resultHistoriesByListIdentity);
     prepareSpeechSynthesis();
-    const cancelFontLoad = scheduleHandwritingFontLoad(stored.settings.characterFont);
+    const cancelFontLoad = scheduleCharacterFontLoad(stored.settings.characterFont);
+    let isOcrWarmupActive = true;
+
+    void warmupCharacterOcr()
+      .then(() => {
+        if (isOcrWarmupActive) {
+          setOcrAvailability("ready");
+        }
+      })
+      .catch(() => {
+        if (isOcrWarmupActive) {
+          setOcrAvailability("failed");
+        }
+      });
 
     return () => {
+      isOcrWarmupActive = false;
       cancelFontLoad();
     };
   }, []);
@@ -239,9 +256,7 @@ export default function App() {
     setSettings(nextSettings);
     saveSettings(nextSettings);
 
-    if (nextSettings.characterFont === "handwriting") {
-      scheduleHandwritingFontLoad(nextSettings.characterFont);
-    }
+    scheduleCharacterFontLoad(nextSettings.characterFont);
   }
 
   function refreshStoredState() {
@@ -480,7 +495,9 @@ export default function App() {
     } catch (error) {
       const message = error instanceof Error ? error.message : "图片识别失败";
 
-      notifyAppError(error, "图片识别失败");
+      if (!message.includes("OCR 初始化失败")) {
+        notifyAppError(error, "图片识别失败");
+      }
       setOcrState({
         candidateText: "",
         message,
@@ -493,7 +510,13 @@ export default function App() {
   }
 
   function prepareOcrModel() {
-    void warmupCharacterOcr().catch((error) => notifyAppError(error, "图片识别模型加载失败"));
+    if (ocrAvailability === "ready") {
+      return;
+    }
+
+    void warmupCharacterOcr()
+      .then(() => setOcrAvailability("ready"))
+      .catch(() => setOcrAvailability("failed"));
   }
 
   function updateOcrCandidateText(value: string) {
@@ -562,6 +585,7 @@ export default function App() {
     saveRecentList(drafts, replaceKey);
     refreshStoredState();
     setEditingRecentKey(null);
+    setIsEditingSelectedRecent(false);
     setSession(
       createPracticeSession({
         sourceText: joinCharacters(chars),
@@ -576,11 +600,31 @@ export default function App() {
     setPage("practice");
   }
 
-  function editRecent(drafts: CharacterDraft[]) {
+  function selectRecent(drafts: CharacterDraft[]) {
+    const key = getRecentListKey(drafts);
+
+    if (editingRecentKey === key) {
+      setIsSetupPinyinEditing(false);
+      setInputText("");
+      setSelectedPinyins({});
+      setEditingRecentKey(null);
+      setIsEditingSelectedRecent(false);
+      return;
+    }
+
     setIsSetupPinyinEditing(false);
     setInputText(joinCharacters(drafts.map((draft) => draft.char)));
     setSelectedPinyins(getSelectedPinyinMap(drafts));
-    setEditingRecentKey(getRecentListKey(drafts));
+    setEditingRecentKey(key);
+    setIsEditingSelectedRecent(false);
+  }
+
+  function editSelectedRecent() {
+    if (!editingRecentKey) {
+      return;
+    }
+
+    setIsEditingSelectedRecent(true);
   }
 
   function removeRecent(drafts: CharacterDraft[]) {
@@ -590,6 +634,7 @@ export default function App() {
 
     if (editingRecentKey === key) {
       setEditingRecentKey(null);
+      setIsEditingSelectedRecent(false);
       setInputText("");
     }
 
@@ -614,6 +659,7 @@ export default function App() {
     setRecentLists([]);
     setResultHistoriesByListIdentity({});
     setEditingRecentKey(null);
+    setIsEditingSelectedRecent(false);
     setSession(null);
     setAnswerEditingReturnPage(null);
     setActiveListIdentity(null);
@@ -626,7 +672,7 @@ export default function App() {
     setShareStatus("已清理全部缓存");
     setPage("setup");
     updateShareUrl(window.location.pathname);
-    scheduleHandwritingFontLoad(DEFAULT_SETTINGS.characterFont);
+    scheduleCharacterFontLoad(DEFAULT_SETTINGS.characterFont);
   }
 
   function updateSession(nextSession: PracticeSession) {
@@ -922,19 +968,22 @@ export default function App() {
           previewItems={previewItems}
           ocrPreviewImages={ocrPreviewImages}
           ocrState={ocrState}
+          isOcrAvailable={ocrAvailability === "ready"}
+          isEditingSelectedRecent={isEditingSelectedRecent}
           shareStatus={shareStatus}
           showPinyinChoices={isSetupPinyinEditing}
           onImageFilesSelected={recognizeImages}
           onInputChange={updateInputText}
           editingRecentKey={editingRecentKey}
           onDeleteRecent={removeRecent}
-          onEditRecent={editRecent}
+          onEditRecent={selectRecent}
           onOpenRecentHistory={openRecentHistory}
           onClearAllCache={clearAllCache}
           onClearOcr={clearOcrCandidates}
           onConfirmOcr={confirmOcrCandidates}
           onPinyinChange={updateSelectedPinyin}
           onPinyinEditToggle={() => setIsSetupPinyinEditing((current) => !current)}
+          onEditSelectedRecent={editSelectedRecent}
           onReorderPreviewItems={reorderPreviewItems}
           onOcrCandidateChange={updateOcrCandidateText}
           onPrepareOcr={prepareOcrModel}
@@ -1066,13 +1115,13 @@ function revokeOcrPreviewImages(images: OcrPreviewImage[]) {
   }
 }
 
-function scheduleHandwritingFontLoad(characterFont: StoredSettings["characterFont"]): () => void {
-  if (characterFont !== "handwriting") {
+function scheduleCharacterFontLoad(characterFont: StoredSettings["characterFont"]): () => void {
+  if (characterFont === "sans") {
     return () => undefined;
   }
 
   const timer = window.setTimeout(() => {
-    void loadHandwritingFont().catch(() => undefined);
+    void loadCharacterFont(characterFont).catch(() => undefined);
   }, 900);
 
   return () => {

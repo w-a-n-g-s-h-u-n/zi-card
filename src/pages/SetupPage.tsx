@@ -9,6 +9,8 @@ type SetupPageProps = {
   inputText: string;
   ocrPreviewImages: OcrPreviewImage[];
   ocrState: OcrUiState;
+  isOcrAvailable: boolean;
+  isEditingSelectedRecent: boolean;
   settings: StoredSettings;
   recentLists: CharacterDraft[][];
   resultHistoriesByListIdentity: Record<string, PracticeResultRecord[]>;
@@ -17,6 +19,7 @@ type SetupPageProps = {
   onInputChange: (value: string) => void;
   onPinyinChange: (char: string, pinyin: string) => void;
   onPinyinEditToggle: () => void;
+  onEditSelectedRecent: () => void;
   onReorderPreviewItems: (fromIndex: number, toIndex: number) => void;
   onSettingsChange: (settings: StoredSettings) => void;
   onEditRecent: (drafts: CharacterDraft[]) => void;
@@ -40,6 +43,8 @@ export function SetupPage({
   inputText,
   ocrPreviewImages,
   ocrState,
+  isOcrAvailable,
+  isEditingSelectedRecent,
   settings,
   recentLists,
   resultHistoriesByListIdentity,
@@ -48,6 +53,7 @@ export function SetupPage({
   onInputChange,
   onPinyinChange,
   onPinyinEditToggle,
+  onEditSelectedRecent,
   onReorderPreviewItems,
   onSettingsChange,
   onEditRecent,
@@ -84,6 +90,8 @@ export function SetupPage({
           inputText={inputText}
           ocrPreviewImages={ocrPreviewImages}
           ocrState={ocrState}
+          isOcrAvailable={isOcrAvailable}
+          isEditingSelectedRecent={isEditingSelectedRecent}
           previewItems={previewItems}
           settings={settings}
           shareStatus={shareStatus}
@@ -94,6 +102,7 @@ export function SetupPage({
           onInputChange={onInputChange}
           onOcrCandidateChange={onOcrCandidateChange}
           onPinyinChange={onPinyinChange}
+          onEditSelectedRecent={onEditSelectedRecent}
           onPrepareOcr={onPrepareOcr}
           onReorderPreviewItems={onReorderPreviewItems}
           onRetryOcr={onRetryOcr}
@@ -107,12 +116,10 @@ export function SetupPage({
           editingRecentKey={editingRecentKey}
           recentLists={recentLists}
           resultHistoriesByListIdentity={resultHistoriesByListIdentity}
-          settings={settings}
           onDeleteRecent={onDeleteRecent}
           onEditRecent={onEditRecent}
           onOpenRecentHistory={onOpenRecentHistory}
           onClearAllCache={onClearAllCache}
-          onSettingsChange={onSettingsChange}
           onShareRecent={onShareRecent}
         />
       </section>

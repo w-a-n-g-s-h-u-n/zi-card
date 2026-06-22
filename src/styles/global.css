@@ -45,18 +45,10 @@
     "Microsoft YaHei",
     sans-serif;
   --font-character-kai:
-    "Kaiti SC",
-    "STKaiti",
-    "KaiTi",
-    "楷体",
-    "DFKai-SB",
+    "LXGW WenKai Screen R",
     var(--font-character-sans);
   --font-character-handwriting:
     "LXGW WenKai Screen",
-    "LXGW WenKai",
-    "霞鹜文楷",
-    "Kaiti SC",
-    "KaiTi",
     var(--font-character-kai);
   --font-character: var(--font-character-handwriting);
   --font-character-weight: 400;
@@ -104,7 +96,7 @@ button {
 
 .app-shell[data-character-font="kai"] {
   --font-character: var(--font-character-kai);
-  --font-character-weight: 850;
+  --font-character-weight: 400;
 }
 
 .app-shell[data-character-font="handwriting"] {
@@ -611,7 +603,8 @@ h2 {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  width: min(270px, calc(100vw - 40px));
+  width: min(360px, calc(100vw - 48px));
+  max-height: min(560px, calc(100dvh - 96px));
   display: grid;
   gap: 8px;
   border: 1px solid var(--color-border);
@@ -619,6 +612,8 @@ h2 {
   padding: 8px;
   background: #fff;
   box-shadow: 0 18px 34px rgb(31 42 55 / 18%);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .display-settings-popover .preview-edit-toggle {
@@ -632,6 +627,40 @@ h2 {
 
 .display-settings-popover .segmented-field {
   gap: 7px;
+}
+
+.display-settings-popover .practice-toggle-group {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.display-settings-popover .toggle-row {
+  min-width: 0;
+  min-height: 48px;
+  gap: 8px;
+  padding: 0 9px;
+}
+
+.display-settings-popover .toggle-label {
+  min-width: 0;
+  gap: 6px;
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+
+.display-settings-popover .toggle-root {
+  width: 46px;
+  height: 28px;
+  flex: 0 0 auto;
+}
+
+.display-settings-popover .toggle-thumb {
+  width: 22px;
+  height: 22px;
+}
+
+.display-settings-popover .toggle-root[data-state="checked"] .toggle-thumb {
+  transform: translateX(21px);
 }
 
 .display-settings-popover .segmented-control {
@@ -665,7 +694,7 @@ h2 {
   cursor: grab;
   user-select: none;
   -webkit-user-select: none;
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 .preview-card[data-dragging="true"] {
@@ -1276,6 +1305,8 @@ h2 {
 }
 
 .progress-dots {
+  --progress-character-height: 56px;
+
   min-height: 22px;
   position: relative;
   overflow: hidden;
@@ -1284,7 +1315,11 @@ h2 {
 }
 
 .progress-dots[data-preview="characters"] {
-  min-height: 74px;
+  min-height: var(--progress-character-height);
+}
+
+.progress-dots[data-preview="characters"][data-with-pinyin="true"] {
+  --progress-character-height: 70px;
 }
 
 .progress-dots[data-draggable="true"] {
@@ -1316,7 +1351,7 @@ h2 {
 }
 
 .progress-dots-track[data-preview="characters"] {
-  min-height: 74px;
+  min-height: var(--progress-character-height);
   gap: 8px;
 }
 
@@ -1330,7 +1365,7 @@ h2 {
 
 .progress-dot-slot[data-preview="characters"] {
   width: 56px;
-  min-height: 74px;
+  min-height: var(--progress-character-height);
   flex-basis: 56px;
 }
 
@@ -1348,7 +1383,7 @@ h2 {
 
 .progress-character-chip {
   width: 56px;
-  min-height: 56px;
+  min-height: var(--progress-character-height);
   display: grid;
   place-items: center;
   border-radius: 8px;
@@ -1371,7 +1406,7 @@ h2 {
   top: 0;
   left: 50%;
   width: 56px;
-  height: 56px;
+  height: var(--progress-character-height);
   border: 2px solid var(--color-blue);
   border-radius: 8px;
   box-shadow: 0 0 0 3px rgb(63 115 216 / 20%);
@@ -2171,7 +2206,7 @@ h2 {
   cursor: grab;
   user-select: none;
   -webkit-user-select: none;
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 .result-chip-card[data-dragging="true"] {

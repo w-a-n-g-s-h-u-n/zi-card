@@ -41,13 +41,14 @@ export function RecentListsPanel({
             const text = joinCharacters(drafts.map((draft) => draft.char));
             const records = resultHistoriesByListIdentity[key] ?? [];
             const historySummary = getHistorySummary(records);
+            const isSelected = editingRecentKey === key;
 
             return (
-              <div className="recent-item" data-editing={editingRecentKey === key} key={key}>
+              <div className="recent-item" data-editing={isSelected} key={key}>
                 <button
-                  aria-label={`编辑字表 ${text}`}
+                  aria-label={`${isSelected ? "取消选择" : "选择"}字表 ${text}`}
                   className="recent-card-action"
-                  title="编辑字表"
+                  title={isSelected ? "取消选择" : "选择字表"}
                   type="button"
                   onClick={() => onEditRecent(drafts)}
                 />

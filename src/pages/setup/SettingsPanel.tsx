@@ -1,20 +1,16 @@
-import { Dice5, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import type { CharacterDraft } from "../../types/character";
 import type { PracticeResultRecord } from "../../types/result";
-import type { StoredSettings } from "../../storage/storageTypes";
-import { Toggle } from "../../ui/Toggle";
 import { RecentListsPanel } from "./RecentListsPanel";
 
 type SettingsPanelProps = {
   editingRecentKey: string | null;
   recentLists: CharacterDraft[][];
   resultHistoriesByListIdentity: Record<string, PracticeResultRecord[]>;
-  settings: StoredSettings;
   onDeleteRecent: (drafts: CharacterDraft[]) => void;
   onEditRecent: (drafts: CharacterDraft[]) => void;
   onOpenRecentHistory: (drafts: CharacterDraft[]) => void;
   onClearAllCache: () => void;
-  onSettingsChange: (settings: StoredSettings) => void;
   onShareRecent: (drafts: CharacterDraft[]) => void;
 };
 
@@ -22,32 +18,14 @@ export function SettingsPanel({
   editingRecentKey,
   recentLists,
   resultHistoriesByListIdentity,
-  settings,
   onDeleteRecent,
   onEditRecent,
   onOpenRecentHistory,
   onClearAllCache,
-  onSettingsChange,
   onShareRecent,
 }: SettingsPanelProps) {
-  function updateSettings(patch: Partial<StoredSettings>) {
-    onSettingsChange({
-      ...settings,
-      ...patch,
-    });
-  }
-
   return (
     <aside className="settings-panel">
-      <div className="toggle-group">
-        <Toggle
-          checked={settings.randomOrder}
-          icon={<Dice5 aria-hidden="true" size={21} />}
-          label="随机"
-          onCheckedChange={(randomOrder) => updateSettings({ randomOrder })}
-        />
-      </div>
-
       <RecentListsPanel
         editingRecentKey={editingRecentKey}
         recentLists={recentLists}

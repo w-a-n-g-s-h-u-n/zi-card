@@ -5,6 +5,7 @@ import type { OcrPreviewImage, OcrUiState } from "../../types/ocr";
 import { extractUniqueCharacters } from "../../utils/text";
 
 type ImageOcrPanelProps = {
+  isOcrAvailable: boolean;
   ocrPreviewImages: OcrPreviewImage[];
   ocrState: OcrUiState;
   onClearOcr: () => void;
@@ -16,6 +17,7 @@ type ImageOcrPanelProps = {
 };
 
 export function ImageOcrPanel({
+  isOcrAvailable,
   ocrPreviewImages,
   ocrState,
   onClearOcr,
@@ -45,32 +47,34 @@ export function ImageOcrPanel({
 
   return (
     <div className="image-ocr-panel" data-expanded={showDetails} data-status={ocrState.status}>
-      <div className="image-ocr-topline">
-        <button
-          aria-label={imageOcrLabel}
-          className="image-ocr-button"
-          disabled={isWorking}
-          title={imageOcrLabel}
-          type="button"
-          onClick={() => imageInputRef.current?.click()}
-          onFocus={onPrepareOcr}
-          onMouseEnter={onPrepareOcr}
-          onPointerDown={onPrepareOcr}
-          onPointerEnter={onPrepareOcr}
-          onTouchStart={onPrepareOcr}
-        >
-          {isWorking ? <Loader2 aria-hidden="true" className="spin-icon" size={20} /> : <ImageUp aria-hidden="true" size={20} />}
-        </button>
-        <input
-          ref={imageInputRef}
-          className="image-ocr-input"
-          type="file"
-          accept="image/*"
-          multiple
-          disabled={isWorking}
-          onChange={handleImageInputChange}
-        />
-      </div>
+      {isOcrAvailable ? (
+        <div className="image-ocr-topline">
+          <button
+            aria-label={imageOcrLabel}
+            className="image-ocr-button"
+            disabled={isWorking}
+            title={imageOcrLabel}
+            type="button"
+            onClick={() => imageInputRef.current?.click()}
+            onFocus={onPrepareOcr}
+            onMouseEnter={onPrepareOcr}
+            onPointerDown={onPrepareOcr}
+            onPointerEnter={onPrepareOcr}
+            onTouchStart={onPrepareOcr}
+          >
+            {isWorking ? <Loader2 aria-hidden="true" className="spin-icon" size={20} /> : <ImageUp aria-hidden="true" size={20} />}
+          </button>
+          <input
+            ref={imageInputRef}
+            className="image-ocr-input"
+            type="file"
+            accept="image/*"
+            multiple
+            disabled={isWorking}
+            onChange={handleImageInputChange}
+          />
+        </div>
+      ) : null}
 
       {showDetails ? (
         <div className="image-ocr-details">

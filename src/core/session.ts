@@ -146,15 +146,15 @@ export function getNextCharacterAssessment(
   current?: CharacterAssessment,
 ): CharacterAssessment | undefined {
   if (!current) {
+    return "known";
+  }
+
+  if (current === "known") {
     return "unknown";
   }
 
   if (current === "unknown") {
     return "review";
-  }
-
-  if (current === "review") {
-    return "known";
   }
 
   return undefined;

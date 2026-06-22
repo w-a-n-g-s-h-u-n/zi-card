@@ -34,7 +34,8 @@ export function PracticeSettingsPanel({
 
   const polyphonicPreviewCount = previewItems.filter((item) => item.pinyinOptions.length > 1).length;
   const hasPolyphonicPreview = polyphonicPreviewCount > 0;
-  const previewCountLabel = showPinyinChoices
+  const effectiveShowPinyinChoices = hasPolyphonicPreview && showPinyinChoices;
+  const previewCountLabel = effectiveShowPinyinChoices
     ? `${polyphonicPreviewCount} 个多音字`
     : `${previewItems.length} 个字`;
 
@@ -58,22 +59,22 @@ export function PracticeSettingsPanel({
           <div className="preview-heading">
             <span>当前字表</span>
             <strong>{previewCountLabel}</strong>
-            {hasPolyphonicPreview || showPinyinChoices ? (
+            {hasPolyphonicPreview ? (
               <button
                 className="preview-edit-toggle"
-                data-active={showPinyinChoices}
+                data-active={effectiveShowPinyinChoices}
                 type="button"
                 onClick={onTogglePinyinEdit}
               >
                 <Pencil aria-hidden="true" size={17} />
-                <span>{showPinyinChoices ? "收起读音" : "编辑读音"}</span>
+                <span>{effectiveShowPinyinChoices ? "收起读音" : "编辑读音"}</span>
               </button>
             ) : null}
           </div>
           <CharacterPreviewList
             previewItems={previewItems}
             showPinyin={settings.showPinyin}
-            showPinyinChoices={showPinyinChoices}
+            showPinyinChoices={effectiveShowPinyinChoices}
             onPinyinChange={onPinyinChange}
             onReorder={onReorderDrafts}
           />
