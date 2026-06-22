@@ -31,6 +31,7 @@ export function ImageOcrPanel({
   const hasResult = ocrState.status === "pending";
   const candidateCount = extractUniqueCharacters(ocrState.candidateText).length;
   const canConfirm = candidateCount > 0;
+  const imageOcrLabel = ocrState.status === "loading" ? "加载模型" : isWorking ? "识别中" : "识别图片";
 
   function handleImageInputChange(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
@@ -46,8 +47,10 @@ export function ImageOcrPanel({
     <div className="image-ocr-panel" data-expanded={showDetails} data-status={ocrState.status}>
       <div className="image-ocr-topline">
         <button
+          aria-label={imageOcrLabel}
           className="image-ocr-button"
           disabled={isWorking}
+          title={imageOcrLabel}
           type="button"
           onClick={() => imageInputRef.current?.click()}
           onFocus={onPrepareOcr}
@@ -57,7 +60,6 @@ export function ImageOcrPanel({
           onTouchStart={onPrepareOcr}
         >
           {isWorking ? <Loader2 aria-hidden="true" className="spin-icon" size={20} /> : <ImageUp aria-hidden="true" size={20} />}
-          <span>{ocrState.status === "loading" ? "加载模型" : isWorking ? "识别中" : "识别图片"}</span>
         </button>
         <input
           ref={imageInputRef}

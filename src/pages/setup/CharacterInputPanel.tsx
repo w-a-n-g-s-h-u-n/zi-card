@@ -54,28 +54,31 @@ export function CharacterInputPanel({
 
   return (
     <div className="input-panel">
-      <label className="field-label" htmlFor="character-input">
-        {editingRecentKey ? "编辑历史字表" : "本次字表"}
-      </label>
-      <textarea
-        className="character-input"
-        id="character-input"
-        inputMode="text"
-        placeholder="日 月 山 水 火"
-        value={inputText}
-        onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onInputChange(event.target.value)}
-      />
+      <div className="character-input-shell">
+        <label className="field-label" htmlFor="character-input">
+          {editingRecentKey ? "编辑历史字表" : "本次字表"}
+        </label>
 
-      <ImageOcrPanel
-        ocrPreviewImages={ocrPreviewImages}
-        ocrState={ocrState}
-        onClearOcr={onClearOcr}
-        onConfirmOcr={onConfirmOcr}
-        onImageFilesSelected={onImageFilesSelected}
-        onOcrCandidateChange={onOcrCandidateChange}
-        onPrepareOcr={onPrepareOcr}
-        onRetryOcr={onRetryOcr}
-      />
+        <ImageOcrPanel
+          ocrPreviewImages={ocrPreviewImages}
+          ocrState={ocrState}
+          onClearOcr={onClearOcr}
+          onConfirmOcr={onConfirmOcr}
+          onImageFilesSelected={onImageFilesSelected}
+          onOcrCandidateChange={onOcrCandidateChange}
+          onPrepareOcr={onPrepareOcr}
+          onRetryOcr={onRetryOcr}
+        />
+
+        <textarea
+          className="character-input"
+          id="character-input"
+          inputMode="text"
+          placeholder="日 月 山 水 火"
+          value={inputText}
+          onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onInputChange(event.target.value)}
+        />
+      </div>
 
       <div className="preview-panel">
         <div className="preview-heading">

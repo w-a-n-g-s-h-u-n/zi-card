@@ -112,6 +112,97 @@ button {
   --font-character-weight: 400;
 }
 
+.global-error-stack {
+  position: fixed;
+  z-index: 1000;
+  top: max(14px, env(safe-area-inset-top));
+  right: max(14px, env(safe-area-inset-right));
+  width: min(420px, calc(100vw - 28px));
+  display: grid;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.global-error-notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  border: 1px solid #f0b8ac;
+  border-radius: 8px;
+  padding: 11px 10px 11px 12px;
+  background: #fff8f5;
+  color: #8d2f2a;
+  box-shadow: 0 14px 36px rgb(70 22 16 / 18%);
+  pointer-events: auto;
+}
+
+.global-error-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.global-error-copy strong {
+  font-size: 0.92rem;
+  line-height: 1.25;
+}
+
+.global-error-copy pre {
+  max-height: 148px;
+  margin: 0;
+  overflow: auto;
+  color: #5d2924;
+  font-family: var(--font-ui);
+  font-size: 0.76rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.global-error-dismiss {
+  width: 32px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #7d342f;
+  cursor: pointer;
+}
+
+.app-error-fallback {
+  min-height: calc(100dvh - 34px);
+  width: min(100%, 420px);
+  margin: 0 auto;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+  color: #7d342f;
+}
+
+.app-error-fallback h1 {
+  font-size: 1.35rem;
+}
+
+.app-error-fallback p {
+  color: var(--color-muted);
+}
+
+.app-error-fallback button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 18px;
+  background: var(--color-coral);
+  color: #fff;
+  font-weight: 850;
+  cursor: pointer;
+}
+
 .setup-page,
 .result-page,
 .result-history-page,
@@ -190,7 +281,23 @@ h2 {
   font-weight: 750;
 }
 
+.character-input-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "label ocr"
+    "input input"
+    "details details";
+  align-items: center;
+  gap: 8px;
+}
+
+.character-input-shell .field-label {
+  grid-area: label;
+}
+
 .character-input {
+  grid-area: input;
   width: 100%;
   min-height: 144px;
   resize: vertical;
@@ -214,23 +321,28 @@ h2 {
   gap: 8px;
 }
 
+.character-input-shell > .image-ocr-panel {
+  display: contents;
+}
+
 .image-ocr-topline {
+  grid-area: ocr;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
 }
 
 .image-ocr-button {
-  min-height: 44px;
+  width: 38px;
+  min-height: 38px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  border: 1px solid #c9d7ff;
+  border: 1px solid #d8e4ed;
   border-radius: 8px;
-  padding: 0 12px;
-  background: var(--color-blue-soft);
-  color: #244a9c;
-  font-weight: 820;
+  padding: 0;
+  background: #fff;
+  color: var(--color-muted);
   cursor: pointer;
 }
 
@@ -253,6 +365,7 @@ h2 {
 }
 
 .image-ocr-details {
+  grid-area: details;
   display: grid;
   gap: 8px;
 }
@@ -839,6 +952,8 @@ h2 {
 .icon-button:focus-visible,
 .image-ocr-button:focus-visible,
 .image-ocr-action:focus-visible,
+.global-error-dismiss:focus-visible,
+.app-error-fallback button:focus-visible,
 .segment:focus-visible,
 .toggle-root:focus-visible,
 .pinyin-choice:focus-visible,
@@ -883,6 +998,8 @@ h2 {
 .icon-button:active,
 .image-ocr-button:active,
 .image-ocr-action:active,
+.global-error-dismiss:active,
+.app-error-fallback button:active,
 .segment:active,
 .find-option:active,
 .recent-main-action:active,

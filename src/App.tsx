@@ -53,6 +53,7 @@ import type { PracticeSession } from "./types/session";
 import { playTone } from "./speech/soundEffects";
 import { prepareSpeechSynthesis, speakCharacter } from "./speech/speechSynthesis";
 import { copyText } from "./utils/clipboard";
+import { notifyAppError } from "./utils/errorNotifications";
 import { loadHandwritingFont } from "./utils/handwritingFont";
 import { useRemoteFocusNavigation } from "./utils/remoteFocus";
 import { extractUniqueCharacters, joinCharacters } from "./utils/text";
@@ -279,9 +280,12 @@ export default function App() {
         totalFiles: result.files.length,
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : "图片识别失败";
+
+      notifyAppError(error, "图片识别失败");
       setOcrState({
         candidateText: "",
-        message: error instanceof Error ? error.message : "图片识别失败",
+        message,
         progress: 0,
         results: [],
         status: "error",
@@ -291,7 +295,7 @@ export default function App() {
   }
 
   function prepareOcrModel() {
-    void warmupCharacterOcr().catch(() => undefined);
+    void warmupCharacterOcr().catch((error) => notifyAppError(error, "图片识别模型加载失败"));
   }
 
   function updateOcrCandidateText(value: string) {
