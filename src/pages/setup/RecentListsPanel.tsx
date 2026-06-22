@@ -39,45 +39,37 @@ export function RecentListsPanel({
           {recentLists.map((drafts) => {
             const key = getCharacterListIdentity(drafts);
             const text = joinCharacters(drafts.map((draft) => draft.char));
-            const historySummary = getHistorySummary(resultHistoriesByListIdentity[key] ?? []);
-            const previewDrafts = drafts.slice(0, 12);
-            const hiddenCount = drafts.length - previewDrafts.length;
+            const records = resultHistoriesByListIdentity[key] ?? [];
+            const historySummary = getHistorySummary(records);
 
             return (
               <div className="recent-item" data-editing={editingRecentKey === key} key={key}>
                 <button
                   className="recent-main-action"
-                  title="选择编辑"
+                  title="编辑字表"
                   type="button"
                   onClick={() => onEditRecent(drafts)}
                 >
-                  <BookOpenText aria-hidden="true" size={18} />
-                  <span className="recent-main-copy">
-                    <span className="recent-main-title">
-                      <strong>字表</strong>
-                      <small>{drafts.length} 个字</small>
-                    </span>
-                    <span className="recent-preview-strip" aria-label={text}>
-                      {previewDrafts.map((draft) => (
-                        <span className="recent-preview-char" key={draft.char}>
-                          {draft.char}
-                        </span>
-                      ))}
-                      {hiddenCount > 0 ? <span className="recent-preview-more">+{hiddenCount}</span> : null}
-                    </span>
-                    <small>{historySummary}</small>
+                  <span className="recent-characters" aria-label={text}>
+                    {text}
                   </span>
                 </button>
+                <small className="recent-meta">
+                  <span>{drafts.length} 字</span>
+                  {historySummary ? <span>{historySummary}</span> : null}
+                </small>
                 <div className="recent-row-actions">
-                  <button
-                    aria-label={`查看字表 ${text} 的识字结果历史`}
-                    className="recent-icon-action"
-                    title="历史"
-                    type="button"
-                    onClick={() => onOpenRecentHistory(drafts)}
-                  >
-                    <History aria-hidden="true" size={18} />
-                  </button>
+                  {records.length > 0 ? (
+                    <button
+                      aria-label={`查看字表 ${text} 的识字结果历史`}
+                      className="recent-icon-action"
+                      title="历史"
+                      type="button"
+                      onClick={() => onOpenRecentHistory(drafts)}
+                    >
+                      <History aria-hidden="true" size={18} />
+                    </button>
+                  ) : null}
                   <button
                     aria-label={`分享字表 ${text}`}
                     className="recent-icon-action"
@@ -106,13 +98,13 @@ export function RecentListsPanel({
   );
 }
 
-function getHistorySummary(records: PracticeResultRecord[]): string {
+function getHistorySummary(records: PracticeResultRecord[]): string | null {
   if (records.length === 0) {
-    return "暂无识字结果";
+    return null;
   }
 
   const latest = records[0];
   const stats = getResultRecordStats(latest);
 
-  return `${records.length} 条结果 · 最近 ${stats.passRate}%`;
+  return `${records.length} 次 · ${stats.passRate}%`;
 }

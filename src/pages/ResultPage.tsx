@@ -58,7 +58,7 @@ export function ResultPage({
             回到字表
           </Button>
         )}
-        {stats.practiced > 0 ? (
+        {stats.practiced > 0 && !canContinue ? (
           <Button icon={PencilLine} variant="quiet" size="large" onClick={onEditAnswers}>
             修改答案
           </Button>

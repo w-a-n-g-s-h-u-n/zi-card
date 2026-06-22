@@ -10,6 +10,7 @@ import type { CharacterAssessment } from "../../types/session";
 type FlashcardModeProps = {
   item?: CharacterItem;
   showPinyin: boolean;
+  showSpeakButton: boolean;
   canGoPrevious: boolean;
   canGoNext: boolean;
   extraCardAction?: ReactNode;
@@ -25,6 +26,7 @@ type FlashcardModeProps = {
 export function FlashcardMode({
   item,
   showPinyin,
+  showSpeakButton,
   canGoPrevious,
   canGoNext,
   extraCardAction,
@@ -44,14 +46,16 @@ export function FlashcardMode({
         pinyin={showPinyin ? item?.pinyin : undefined}
         action={
           <>
-            <IconButton
-              icon={Volume2}
-              label="读音"
-              title="读音"
-              variant="quiet"
-              onClick={onSpeak}
-              disabled={!item}
-            />
+            {showSpeakButton ? (
+              <IconButton
+                icon={Volume2}
+                label="读音"
+                title="读音"
+                variant="quiet"
+                onClick={onSpeak}
+                disabled={!item}
+              />
+            ) : null}
             {extraCardAction}
           </>
         }

@@ -1,4 +1,4 @@
-import { Home, ListChecks, Settings2 } from "lucide-react";
+import { Home, Save, Settings2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { createCharacterPreviewItems, getSelectedPinyinMap } from "../core/characters";
 import { getCurrentItem, getCurrentResult } from "../core/session";
@@ -81,7 +81,7 @@ export function PracticePage({
             {progressNumber}/{session.queue.length}
           </strong>
         </div>
-        <IconButton icon={ListChecks} label="完成" title="完成" variant="quiet" onClick={onFinish} />
+        <IconButton icon={Save} label="保存" title="保存" variant="quiet" onClick={onFinish} />
       </header>
 
       <ProgressDots
@@ -99,6 +99,7 @@ export function PracticePage({
             extraCardAction={settingsAction}
             selectedResult={getCurrentResult(session)}
             showPinyin={settings.showPinyin}
+            showSpeakButton={settings.soundEnabled}
             onKnown={onKnown}
             onNext={onNext}
             onPrevious={onPrevious}
@@ -112,6 +113,7 @@ export function PracticePage({
             item={item}
             extraCardAction={settingsAction}
             showPinyin={settings.showPinyin}
+            showSpeakButton={settings.soundEnabled}
             onCorrect={onCorrect}
             onSpeak={onSpeak}
             onUnknown={onUnknown}

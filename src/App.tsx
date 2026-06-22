@@ -60,6 +60,7 @@ import { recognizeCharacterImages, warmupCharacterOcr } from "./ocr/imageOcr";
 import type { OcrPreviewImage, OcrUiState } from "./types/ocr";
 
 type PageState = "setup" | "practice" | "result" | "resultHistory" | "resultDetail";
+type AnswerEditingReturnPage = "result" | "resultDetail";
 
 const OCR_IDLE_STATE: OcrUiState = {
   candidateText: "",
@@ -85,6 +86,7 @@ export default function App() {
   const [shareStatus, setShareStatus] = useState<string | null>(null);
   const [resultStatus, setResultStatus] = useState<string | null>(null);
   const [session, setSession] = useState<PracticeSession | null>(null);
+  const [answerEditingReturnPage, setAnswerEditingReturnPage] = useState<AnswerEditingReturnPage | null>(null);
   const [activeListIdentity, setActiveListIdentity] = useState<string | null>(null);
   const [activeResultRecordId, setActiveResultRecordId] = useState<string | null>(null);
   const [ocrState, setOcrState] = useState<OcrUiState>(OCR_IDLE_STATE);
@@ -367,6 +369,7 @@ export default function App() {
         randomOrder: settings.randomOrder,
       }),
     );
+    setAnswerEditingReturnPage(null);
     setResultStatus(null);
     setPage("practice");
   }
@@ -410,6 +413,7 @@ export default function App() {
     setResultHistoriesByListIdentity({});
     setEditingRecentKey(null);
     setSession(null);
+    setAnswerEditingReturnPage(null);
     setActiveListIdentity(null);
     setActiveResultRecordId(null);
     setOcrState(OCR_IDLE_STATE);
@@ -427,8 +431,7 @@ export default function App() {
     setSession(nextSession);
 
     if (isSessionComplete(nextSession)) {
-      saveSessionResult(nextSession);
-      setPage("result");
+      finishPractice(nextSession);
     }
   }
 
@@ -526,6 +529,7 @@ export default function App() {
   function restartSetup() {
     setPage("setup");
     setSession(null);
+    setAnswerEditingReturnPage(null);
     setResultStatus(null);
     setActiveListIdentity(null);
     setActiveResultRecordId(null);
@@ -533,14 +537,23 @@ export default function App() {
 
   function finishSession() {
     if (session) {
-      saveSessionResult(session);
+      finishPractice(session);
     }
-    setPage("result");
   }
 
   function continuePractice() {
+    setAnswerEditingReturnPage(null);
     setPage("practice");
     setResultStatus(null);
+  }
+
+  function finishPractice(nextSession: PracticeSession) {
+    saveSessionResult(nextSession);
+
+    const returnPage = answerEditingReturnPage;
+
+    setAnswerEditingReturnPage(null);
+    setPage(returnPage === "resultDetail" ? "resultDetail" : "result");
   }
 
   function editCurrentAnswers() {
@@ -549,6 +562,7 @@ export default function App() {
     }
 
     setSession(prepareSessionForAnswerEditing(session));
+    setAnswerEditingReturnPage("result");
     setResultStatus(null);
     setPage("practice");
   }
@@ -557,6 +571,7 @@ export default function App() {
     setSession(createPracticeSessionFromResultRecord(record));
     setActiveListIdentity(record.sourceListIdentity);
     setActiveResultRecordId(record.id);
+    setAnswerEditingReturnPage("resultDetail");
     setResultStatus(null);
     setPage("practice");
   }
@@ -573,6 +588,7 @@ export default function App() {
     }
 
     setSession(createReviewSession(session, reviewItems, settings.mode, settings.randomOrder));
+    setAnswerEditingReturnPage(null);
     setResultStatus(null);
     setPage("practice");
   }
@@ -651,6 +667,10 @@ export default function App() {
   }
 
   function speakCurrent() {
+    if (!settings.soundEnabled) {
+      return;
+    }
+
     const current = session?.queue[session.currentIndex];
     speakCharacter(current?.char ?? "", { pinyin: current?.pinyin });
   }
@@ -713,7 +733,7 @@ export default function App() {
       {page === "result" && session && stats ? (
         <ResultPage
           actionStatus={resultStatus}
-          canContinue={!isSessionComplete(session)}
+          canContinue={stats.practiced < stats.total}
           stats={stats}
           onContinue={continuePractice}
           onEditAnswers={editCurrentAnswers}

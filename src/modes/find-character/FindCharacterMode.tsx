@@ -12,6 +12,7 @@ type FindCharacterModeProps = {
   allItems: CharacterItem[];
   extraCardAction?: ReactNode;
   showPinyin: boolean;
+  showSpeakButton: boolean;
   onCorrect: () => void;
   onWrong: (selected: string) => void;
   onUnknown: () => void;
@@ -23,6 +24,7 @@ export function FindCharacterMode({
   allItems,
   extraCardAction,
   showPinyin,
+  showSpeakButton,
   onCorrect,
   onWrong,
   onUnknown,
@@ -69,14 +71,16 @@ export function FindCharacterMode({
         label="找"
         action={
           <>
-            <IconButton
-              icon={Volume2}
-              label="读音"
-              title="读音"
-              variant="quiet"
-              onClick={onSpeak}
-              disabled={!item}
-            />
+            {showSpeakButton ? (
+              <IconButton
+                icon={Volume2}
+                label="读音"
+                title="读音"
+                variant="quiet"
+                onClick={onSpeak}
+                disabled={!item}
+              />
+            ) : null}
             {extraCardAction}
           </>
         }
