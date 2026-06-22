@@ -1,4 +1,5 @@
 import { Check, ChevronLeft, ChevronRight, RotateCcw, Volume2, X } from "lucide-react";
+import type { ReactNode } from "react";
 import type { CharacterItem } from "../../types/character";
 import { Button } from "../../ui/Button";
 import { IconButton } from "../../ui/IconButton";
@@ -11,6 +12,7 @@ type FlashcardModeProps = {
   showPinyin: boolean;
   canGoPrevious: boolean;
   canGoNext: boolean;
+  extraCardAction?: ReactNode;
   selectedResult?: CharacterAssessment;
   onKnown: () => void;
   onUnknown: () => void;
@@ -25,6 +27,7 @@ export function FlashcardMode({
   showPinyin,
   canGoPrevious,
   canGoNext,
+  extraCardAction,
   selectedResult,
   onKnown,
   onUnknown,
@@ -40,14 +43,17 @@ export function FlashcardMode({
         label="认"
         pinyin={showPinyin ? item?.pinyin : undefined}
         action={
-          <IconButton
-            icon={Volume2}
-            label="读音"
-            title="读音"
-            variant="quiet"
-            onClick={onSpeak}
-            disabled={!item}
-          />
+          <>
+            <IconButton
+              icon={Volume2}
+              label="读音"
+              title="读音"
+              variant="quiet"
+              onClick={onSpeak}
+              disabled={!item}
+            />
+            {extraCardAction}
+          </>
         }
       />
 

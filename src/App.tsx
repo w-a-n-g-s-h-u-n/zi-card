@@ -25,6 +25,7 @@ import {
   getCurrentResult,
   isSessionComplete,
   recordAttempt,
+  updateSessionDrafts,
 } from "./core/session";
 import { PracticePage } from "./pages/PracticePage";
 import { ResultDetailPage } from "./pages/ResultDetailPage";
@@ -86,18 +87,17 @@ export default function App() {
   const [ocrState, setOcrState] = useState<OcrUiState>(OCR_IDLE_STATE);
   const [ocrPreviewImages, setOcrPreviewImages] = useState<OcrPreviewImage[]>([]);
   const [lastOcrFiles, setLastOcrFiles] = useState<File[]>([]);
-  const [hideSharedPinyinChoices, setHideSharedPinyinChoices] = useState(false);
+  const [isSetupPinyinEditing, setIsSetupPinyinEditing] = useState(false);
 
   useEffect(() => {
     let stored = readStoredData();
     const sharedResultRecord = getSharedResultRecordFromUrl(window.location.href);
 
     if (sharedResultRecord) {
-      const importedListIdentity = getCharacterListIdentity(sharedResultRecord.sourceDrafts);
-      importResultHistory(sharedResultRecord);
+      const importedRecord = importResultHistory(sharedResultRecord);
       stored = readStoredData();
-      setActiveListIdentity(importedListIdentity);
-      setActiveResultRecordId(sharedResultRecord.id);
+      setActiveListIdentity(importedRecord.sourceListIdentity);
+      setActiveResultRecordId(importedRecord.id);
       setPage("resultDetail");
       setResultStatus("已导入识字结果");
     } else {
@@ -106,7 +106,7 @@ export default function App() {
       if (sharedDrafts.length > 0) {
         setInputText(joinCharacters(sharedDrafts.map((draft) => draft.char)));
         setSelectedPinyins(getSelectedPinyinMap(sharedDrafts));
-        setHideSharedPinyinChoices(true);
+        setIsSetupPinyinEditing(false);
         setShareStatus("已载入分享字表");
       }
     }
@@ -201,7 +201,6 @@ export default function App() {
 
   function updateInputText(value: string) {
     const nextChars = new Set(getCharacterPreview(value));
-    setHideSharedPinyinChoices(false);
     setInputText(value);
     setSelectedPinyins((current) =>
       Object.fromEntries(Object.entries(current).filter(([char]) => nextChars.has(char))),
@@ -209,11 +208,22 @@ export default function App() {
   }
 
   function updateSelectedPinyin(char: string, pinyin: string) {
-    setHideSharedPinyinChoices(false);
+    setIsSetupPinyinEditing(true);
     setSelectedPinyins((current) => ({
       ...current,
       [char]: pinyin,
     }));
+  }
+
+  function reorderPreviewItems(fromIndex: number, toIndex: number) {
+    const reorderedDrafts = moveDraft(previewDrafts, fromIndex, toIndex);
+
+    if (reorderedDrafts === previewDrafts) {
+      return;
+    }
+
+    setInputText(joinCharacters(reorderedDrafts.map((draft) => draft.char)));
+    setSelectedPinyins(getSelectedPinyinMap(reorderedDrafts));
   }
 
   async function recognizeImages(files: File[]) {
@@ -358,15 +368,8 @@ export default function App() {
     setPage("practice");
   }
 
-  function useRecent(drafts: CharacterDraft[]) {
-    setHideSharedPinyinChoices(false);
-    setInputText(joinCharacters(drafts.map((draft) => draft.char)));
-    setSelectedPinyins(getSelectedPinyinMap(drafts));
-    setEditingRecentKey(null);
-  }
-
   function editRecent(drafts: CharacterDraft[]) {
-    setHideSharedPinyinChoices(false);
+    setIsSetupPinyinEditing(false);
     setInputText(joinCharacters(drafts.map((draft) => draft.char)));
     setSelectedPinyins(getSelectedPinyinMap(drafts));
     setEditingRecentKey(getRecentListKey(drafts));
@@ -396,6 +399,38 @@ export default function App() {
       saveSessionResult(nextSession);
       setPage("result");
     }
+  }
+
+  function updatePracticeDrafts(nextDrafts: CharacterDraft[], options: { preserveQueueOrder?: boolean } = {}) {
+    if (!session || nextDrafts.length === 0) {
+      return;
+    }
+
+    const previousListIdentity = session.sourceListIdentity;
+    const nextSession = updateSessionDrafts(session, nextDrafts, options);
+
+    saveRecentList(nextSession.sourceDrafts, previousListIdentity);
+    refreshStoredState();
+    setSession(nextSession);
+  }
+
+  function updatePracticeDraftPinyin(char: string, pinyin: string) {
+    if (!session) {
+      return;
+    }
+
+    updatePracticeDrafts(
+      session.sourceDrafts.map((draft) => (draft.char === char ? { ...draft, pinyin } : draft)),
+      { preserveQueueOrder: true },
+    );
+  }
+
+  function reorderPracticeDrafts(fromIndex: number, toIndex: number) {
+    if (!session) {
+      return;
+    }
+
+    updatePracticeDrafts(moveDraft(session.sourceDrafts, fromIndex, toIndex));
   }
 
   function saveSessionResult(nextSession: PracticeSession): PracticeResultRecord {
@@ -583,7 +618,7 @@ export default function App() {
           ocrPreviewImages={ocrPreviewImages}
           ocrState={ocrState}
           shareStatus={shareStatus}
-          showPinyinChoices={!hideSharedPinyinChoices}
+          showPinyinChoices={isSetupPinyinEditing}
           onImageFilesSelected={recognizeImages}
           onInputChange={updateInputText}
           editingRecentKey={editingRecentKey}
@@ -593,6 +628,8 @@ export default function App() {
           onClearOcr={clearOcrCandidates}
           onConfirmOcr={confirmOcrCandidates}
           onPinyinChange={updateSelectedPinyin}
+          onPinyinEditToggle={() => setIsSetupPinyinEditing((current) => !current)}
+          onReorderPreviewItems={reorderPreviewItems}
           onOcrCandidateChange={updateOcrCandidateText}
           onPrepareOcr={prepareOcrModel}
           onRetryOcr={retryOcr}
@@ -600,7 +637,6 @@ export default function App() {
           onShare={shareCurrentCharacters}
           onShareRecent={shareRecent}
           onStart={startPractice}
-          onUseRecent={useRecent}
         />
       ) : null}
 
@@ -613,8 +649,11 @@ export default function App() {
           onFinish={finishSession}
           onKnown={markKnown}
           onNext={() => setSession(goToNext(session))}
+          onPinyinChange={updatePracticeDraftPinyin}
           onPrevious={() => setSession(goToPrevious(session))}
+          onReorderDrafts={reorderPracticeDrafts}
           onReview={markReview}
+          onSettingsChange={updateSettings}
           onSpeak={speakCurrent}
           onUnknown={markUnknown}
           onWrong={markWrong}
@@ -670,6 +709,24 @@ function mergeCharacterLists(currentChars: string[], nextChars: string[]): strin
     seen.add(char);
     result.push(char);
   }
+
+  return result;
+}
+
+function moveDraft<T>(items: T[], fromIndex: number, toIndex: number): T[] {
+  if (
+    fromIndex === toIndex ||
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= items.length ||
+    toIndex >= items.length
+  ) {
+    return items;
+  }
+
+  const result = [...items];
+  const [item] = result.splice(fromIndex, 1);
+  result.splice(toIndex, 0, item);
 
   return result;
 }

@@ -1,5 +1,6 @@
 import type { CharacterDraft } from "../types/character";
 import { getCharacterListIdentity } from "../core/resultHistory";
+import { resolveCharacterPinyin } from "../core/pinyin";
 import type { PracticeResultRecord } from "../types/result";
 import type { StoredData, StoredSettings } from "./storageTypes";
 
@@ -110,7 +111,7 @@ export function upsertResultHistory(record: PracticeResultRecord): void {
   });
 }
 
-export function importResultHistory(record: PracticeResultRecord): void {
+export function importResultHistory(record: PracticeResultRecord): PracticeResultRecord {
   const current = readStoredData();
   const normalizedRecord = {
     ...record,
@@ -123,14 +124,16 @@ export function importResultHistory(record: PracticeResultRecord): void {
     ? current.recentLists
     : [normalizedRecord.sourceDrafts, ...current.recentLists].slice(0, MAX_RECENT_LISTS);
 
+  const nextHistories = upsertRecordIntoHistories(current.resultHistoriesByListIdentity, normalizedRecord);
+  const savedRecord = getStoredEquivalentRecord(nextHistories, normalizedRecord) ?? normalizedRecord;
+
   writeStoredData({
     ...current,
     recentLists,
-    resultHistoriesByListIdentity: pruneHistoriesToRecentLists(
-      upsertRecordIntoHistories(current.resultHistoriesByListIdentity, normalizedRecord),
-      recentLists,
-    ),
+    resultHistoriesByListIdentity: pruneHistoriesToRecentLists(nextHistories, recentLists),
   });
+
+  return savedRecord;
 }
 
 export function deleteResultHistoryRecord(sourceListIdentity: string, recordId: string): void {
@@ -151,7 +154,9 @@ function upsertRecordIntoHistories(
   record: PracticeResultRecord,
 ): Record<string, PracticeResultRecord[]> {
   const records = histories[record.sourceListIdentity] ?? [];
-  const existingIndex = records.findIndex((item) => item.id === record.id);
+  const existingIndex = records.findIndex(
+    (item) => item.id === record.id || shouldMergeSharedResultRecord(item, record),
+  );
   const nextRecord =
     existingIndex >= 0 && record.id.startsWith("shared-")
       ? records[existingIndex]
@@ -214,7 +219,10 @@ function normalizeResultHistories(value: unknown): Record<string, PracticeResult
       continue;
     }
 
-    const normalizedRecords = records.filter(isPracticeResultRecord);
+    const normalizedRecords = records.filter(isPracticeResultRecord).reduce<PracticeResultRecord[]>(
+      (result, record) => addNormalizedResultRecord(result, record),
+      [],
+    );
 
     if (normalizedRecords.length === 0) {
       continue;
@@ -226,6 +234,68 @@ function normalizeResultHistories(value: unknown): Record<string, PracticeResult
   }
 
   return result;
+}
+
+function addNormalizedResultRecord(records: PracticeResultRecord[], record: PracticeResultRecord): PracticeResultRecord[] {
+  const existingIndex = records.findIndex(
+    (item) => item.id === record.id || shouldMergeSharedResultRecord(item, record),
+  );
+
+  if (existingIndex < 0) {
+    return [...records, record];
+  }
+
+  const existingRecord = records[existingIndex];
+  const nextRecord = record.id.startsWith("shared-")
+    ? existingRecord
+    : existingRecord.id.startsWith("shared-") || record.updatedAt > existingRecord.updatedAt
+      ? record
+      : existingRecord;
+
+  return records.map((item, index) => (index === existingIndex ? nextRecord : item));
+}
+
+function getStoredEquivalentRecord(
+  histories: Record<string, PracticeResultRecord[]>,
+  record: PracticeResultRecord,
+): PracticeResultRecord | null {
+  return (
+    histories[record.sourceListIdentity]?.find(
+      (item) => item.id === record.id || shouldMergeSharedResultRecord(item, record),
+    ) ?? null
+  );
+}
+
+function shouldMergeSharedResultRecord(left: PracticeResultRecord, right: PracticeResultRecord): boolean {
+  return (left.id.startsWith("shared-") || right.id.startsWith("shared-")) && areEquivalentResultRecords(left, right);
+}
+
+function areEquivalentResultRecords(left: PracticeResultRecord, right: PracticeResultRecord): boolean {
+  return (
+    getCharacterListIdentity(left.sourceDrafts) === getCharacterListIdentity(right.sourceDrafts) &&
+    areEquivalentDraftLists(left.sourceDrafts, right.sourceDrafts) &&
+    areEquivalentDraftLists(left.practiceDrafts, right.practiceDrafts) &&
+    areEquivalentPracticeResults(left, right)
+  );
+}
+
+function areEquivalentDraftLists(left: CharacterDraft[], right: CharacterDraft[]): boolean {
+  return (
+    left.length === right.length &&
+    left.every((draft, index) => {
+      const rightDraft = right[index];
+
+      return (
+        Boolean(rightDraft) &&
+        draft.char === rightDraft.char &&
+        resolveCharacterPinyin(draft.char, draft.pinyin) === resolveCharacterPinyin(rightDraft.char, rightDraft.pinyin)
+      );
+    })
+  );
+}
+
+function areEquivalentPracticeResults(left: PracticeResultRecord, right: PracticeResultRecord): boolean {
+  return left.practiceDrafts.every((draft) => left.results[draft.char] === right.results[draft.char]);
 }
 
 function pruneHistoriesToRecentLists(

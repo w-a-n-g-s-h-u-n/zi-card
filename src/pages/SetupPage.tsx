@@ -16,8 +16,9 @@ type SetupPageProps = {
   showPinyinChoices: boolean;
   onInputChange: (value: string) => void;
   onPinyinChange: (char: string, pinyin: string) => void;
+  onPinyinEditToggle: () => void;
+  onReorderPreviewItems: (fromIndex: number, toIndex: number) => void;
   onSettingsChange: (settings: StoredSettings) => void;
-  onUseRecent: (drafts: CharacterDraft[]) => void;
   onEditRecent: (drafts: CharacterDraft[]) => void;
   onDeleteRecent: (drafts: CharacterDraft[]) => void;
   onOpenRecentHistory: (drafts: CharacterDraft[]) => void;
@@ -45,8 +46,9 @@ export function SetupPage({
   showPinyinChoices,
   onInputChange,
   onPinyinChange,
+  onPinyinEditToggle,
+  onReorderPreviewItems,
   onSettingsChange,
-  onUseRecent,
   onEditRecent,
   onOpenRecentHistory,
   onImageFilesSelected,
@@ -90,8 +92,10 @@ export function SetupPage({
           onOcrCandidateChange={onOcrCandidateChange}
           onPinyinChange={onPinyinChange}
           onPrepareOcr={onPrepareOcr}
+          onReorderPreviewItems={onReorderPreviewItems}
           onRetryOcr={onRetryOcr}
           onShare={onShare}
+          onTogglePinyinEdit={onPinyinEditToggle}
           onStart={onStart}
         />
 
@@ -105,7 +109,6 @@ export function SetupPage({
           onOpenRecentHistory={onOpenRecentHistory}
           onSettingsChange={onSettingsChange}
           onShareRecent={onShareRecent}
-          onUseRecent={onUseRecent}
         />
       </section>
     </main>

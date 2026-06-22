@@ -1,4 +1,4 @@
-import { BookOpenText, CheckCircle2, History, ListRestart, Pencil, Share2, Trash2 } from "lucide-react";
+import { BookOpenText, History, ListRestart, Share2, Trash2 } from "lucide-react";
 import { getCharacterListIdentity, getResultRecordStats } from "../../core/resultHistory";
 import type { CharacterDraft } from "../../types/character";
 import type { PracticeResultRecord } from "../../types/result";
@@ -12,7 +12,6 @@ type RecentListsPanelProps = {
   onEditRecent: (drafts: CharacterDraft[]) => void;
   onOpenRecentHistory: (drafts: CharacterDraft[]) => void;
   onShareRecent: (drafts: CharacterDraft[]) => void;
-  onUseRecent: (drafts: CharacterDraft[]) => void;
 };
 
 export function RecentListsPanel({
@@ -23,7 +22,6 @@ export function RecentListsPanel({
   onEditRecent,
   onOpenRecentHistory,
   onShareRecent,
-  onUseRecent,
 }: RecentListsPanelProps) {
   return (
     <div className="recent-panel">
@@ -42,13 +40,31 @@ export function RecentListsPanel({
             const key = getCharacterListIdentity(drafts);
             const text = joinCharacters(drafts.map((draft) => draft.char));
             const historySummary = getHistorySummary(resultHistoriesByListIdentity[key] ?? []);
+            const previewDrafts = drafts.slice(0, 12);
+            const hiddenCount = drafts.length - previewDrafts.length;
 
             return (
               <div className="recent-item" data-editing={editingRecentKey === key} key={key}>
-                <button className="recent-main-action" title="使用" type="button" onClick={() => onUseRecent(drafts)}>
-                  <CheckCircle2 aria-hidden="true" size={18} />
+                <button
+                  className="recent-main-action"
+                  title="选择编辑"
+                  type="button"
+                  onClick={() => onEditRecent(drafts)}
+                >
+                  <BookOpenText aria-hidden="true" size={18} />
                   <span className="recent-main-copy">
-                    <span>{text}</span>
+                    <span className="recent-main-title">
+                      <strong>字表</strong>
+                      <small>{drafts.length} 个字</small>
+                    </span>
+                    <span className="recent-preview-strip" aria-label={text}>
+                      {previewDrafts.map((draft) => (
+                        <span className="recent-preview-char" key={draft.char}>
+                          {draft.char}
+                        </span>
+                      ))}
+                      {hiddenCount > 0 ? <span className="recent-preview-more">+{hiddenCount}</span> : null}
+                    </span>
                     <small>{historySummary}</small>
                   </span>
                 </button>
@@ -61,15 +77,6 @@ export function RecentListsPanel({
                     onClick={() => onOpenRecentHistory(drafts)}
                   >
                     <History aria-hidden="true" size={18} />
-                  </button>
-                  <button
-                    aria-label={`编辑字表 ${text}`}
-                    className="recent-icon-action"
-                    title="编辑"
-                    type="button"
-                    onClick={() => onEditRecent(drafts)}
-                  >
-                    <Pencil aria-hidden="true" size={18} />
                   </button>
                   <button
                     aria-label={`分享字表 ${text}`}

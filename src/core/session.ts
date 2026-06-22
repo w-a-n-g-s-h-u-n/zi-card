@@ -1,6 +1,7 @@
 import type { CharacterDraft, CharacterItem } from "../types/character";
 import type { PracticeMode } from "../types/mode";
 import type { CharacterAssessment, PracticeResult, PracticeSession } from "../types/session";
+import { createCharacterItemsFromDrafts } from "./characters";
 import { createDraftsFromItems, getCharacterListIdentity } from "./resultHistory";
 import { orderItems } from "./shuffle";
 
@@ -121,6 +122,33 @@ export function createReviewSession(
   });
 }
 
+export function updateSessionDrafts(
+  session: PracticeSession,
+  drafts: CharacterDraft[],
+  options: { preserveQueueOrder?: boolean } = {},
+): PracticeSession {
+  const items = createCharacterItemsFromDrafts(drafts);
+  const itemByChar = new Map(items.map((item) => [item.char, item]));
+  const currentChar = getCurrentItem(session)?.char;
+  const queue = options.preserveQueueOrder ? preserveQueueOrder(session.queue, items) : items;
+  const fallbackIndex = Math.min(session.currentIndex, Math.max(queue.length - 1, 0));
+  const currentIndex = currentChar ? queue.findIndex((item) => item.char === currentChar) : -1;
+  const results = Object.fromEntries(Object.entries(session.results).filter(([char]) => itemByChar.has(char)));
+
+  return syncLegacyBuckets({
+    ...session,
+    sourceText: drafts.map((draft) => draft.char).join(""),
+    sourceListIdentity: getCharacterListIdentity(drafts),
+    sourceDrafts: drafts,
+    practiceDrafts: createDraftsFromItems(items),
+    items,
+    queue,
+    currentIndex: currentIndex >= 0 ? currentIndex : fallbackIndex,
+    results,
+    attempts: session.attempts.filter((attempt) => itemByChar.has(attempt.char)),
+  });
+}
+
 function addUnique(items: string[], char: string): string[] {
   return items.includes(char) ? items : [...items, char];
 }
@@ -164,4 +192,15 @@ function syncLegacyBuckets(session: PracticeSession): PracticeSession {
     unknown,
     mistakes,
   };
+}
+
+function preserveQueueOrder(queue: CharacterItem[], items: CharacterItem[]): CharacterItem[] {
+  const itemByChar = new Map(items.map((item) => [item.char, item]));
+  const queuedItems = queue.flatMap((item) => {
+    const nextItem = itemByChar.get(item.char);
+    return nextItem ? [nextItem] : [];
+  });
+  const queuedChars = new Set(queuedItems.map((item) => item.char));
+
+  return [...queuedItems, ...items.filter((item) => !queuedChars.has(item.char))];
 }

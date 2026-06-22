@@ -12,8 +12,14 @@ const RESULT_LABELS: Record<CharacterAssessment, string> = {
   unknown: "错误",
 };
 
+const PROGRESS_DOT_SLOT_SIZE = 22;
+const PROGRESS_DOT_GAP = 5;
+const PROGRESS_DOT_STEP = PROGRESS_DOT_SLOT_SIZE + PROGRESS_DOT_GAP;
+
 export function ProgressDots({ total, current, results = [] }: ProgressDotsProps) {
   const dots = Array.from({ length: total }, (_, index) => index);
+  const activeIndex = total === 0 ? 0 : Math.min(Math.max(current, 0), total - 1);
+  const trackOffset = activeIndex * PROGRESS_DOT_STEP;
   const resultCounts = results.reduce(
     (counts, result) => {
       if (result) {
@@ -28,22 +34,30 @@ export function ProgressDots({ total, current, results = [] }: ProgressDotsProps
 
   return (
     <div className="progress-dots" aria-label={label}>
-      {dots.map((dot) => {
-        const result = results[dot];
-        const resultLabel = result ? RESULT_LABELS[result] : "未判断";
+      <div
+        className="progress-dots-track"
+        style={{
+          transform: `translateX(calc(-${PROGRESS_DOT_SLOT_SIZE / 2}px - ${trackOffset}px))`,
+        }}
+      >
+        {dots.map((dot) => {
+          const result = results[dot];
+          const resultLabel = result ? RESULT_LABELS[result] : "未判断";
 
-        return (
-          <span
-            aria-label={`第 ${dot + 1} 个字：${resultLabel}`}
-            className="progress-dot"
-            data-active={dot === current ? "true" : "false"}
-            data-done={dot < current ? "true" : "false"}
-            data-result={result ?? "none"}
-            key={dot}
-            title={resultLabel}
-          />
-        );
-      })}
+          return (
+            <span className="progress-dot-slot" key={dot}>
+              <span
+                aria-label={`第 ${dot + 1} 个字：${resultLabel}`}
+                className="progress-dot"
+                data-active={dot === activeIndex ? "true" : "false"}
+                data-done={dot < current ? "true" : "false"}
+                data-result={result ?? "none"}
+                title={resultLabel}
+              />
+            </span>
+          );
+        })}
+      </div>
     </div>
   );
 }

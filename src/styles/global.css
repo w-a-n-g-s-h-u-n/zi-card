@@ -434,12 +434,86 @@ h2 {
   }
 }
 
+.preview-panel,
+.practice-draft-editor {
+  display: grid;
+  gap: 8px;
+}
+
+.preview-heading {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text);
+  font-size: 0.92rem;
+  font-weight: 850;
+}
+
+.preview-heading > strong {
+  margin-left: auto;
+  color: var(--color-primary-strong);
+  font-size: 0.84rem;
+}
+
+.preview-edit-toggle {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #c9d7ff;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: var(--color-blue-soft);
+  color: #244a9c;
+  font-size: 0.86rem;
+  font-weight: 850;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.preview-edit-toggle[data-active="true"] {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-strong);
+}
+
 .preview-row {
   min-height: 48px;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
   gap: 8px;
+}
+
+.preview-card {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  border-radius: 8px;
+  transition:
+    opacity 140ms ease,
+    scale 140ms ease;
+}
+
+.preview-card[data-reorderable="true"] {
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.preview-card[data-dragging="true"] {
+  z-index: 2;
+  cursor: grabbing;
+  opacity: 0.94;
+  scale: 1.04;
+}
+
+.preview-card[data-dragging="true"] .character-chip {
+  border-color: var(--color-primary);
+  box-shadow: 0 12px 28px rgb(31 42 55 / 20%);
 }
 
 .character-chip {
@@ -654,9 +728,9 @@ h2 {
 
 .recent-main-action {
   min-width: 0;
-  min-height: 44px;
+  min-height: 68px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   border: 0;
   border-radius: 8px;
@@ -670,10 +744,62 @@ h2 {
 .recent-main-copy {
   min-width: 0;
   display: grid;
-  gap: 2px;
+  gap: 6px;
 }
 
-.recent-main-copy > span,
+.recent-main-title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.recent-main-title > strong {
+  overflow: hidden;
+  font-size: 0.9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-main-title > small {
+  flex: 0 0 auto;
+  color: var(--color-primary-strong);
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.recent-preview-strip {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.recent-preview-char,
+.recent-preview-more {
+  min-width: 28px;
+  min-height: 30px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-blue);
+  color: var(--color-text);
+  font-family: var(--font-character);
+  font-size: 1rem;
+  font-weight: var(--font-character-weight);
+  line-height: 1;
+}
+
+.recent-preview-more {
+  background: #f3f7fb;
+  color: var(--color-muted);
+  font-family: var(--font-ui);
+  font-size: 0.74rem;
+  font-weight: 850;
+}
+
 .recent-main-copy > small {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -716,6 +842,7 @@ h2 {
 .segment:focus-visible,
 .toggle-root:focus-visible,
 .pinyin-choice:focus-visible,
+.preview-edit-toggle:focus-visible,
 .recent-main-action:focus-visible,
 .recent-icon-action:focus-visible {
   outline: 3px solid #0f6f66;
@@ -885,12 +1012,32 @@ h2 {
 }
 
 .progress-dots {
-  min-height: 14px;
+  min-height: 22px;
+  position: relative;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent);
+}
+
+.progress-dots-track {
+  width: max-content;
+  min-height: 22px;
+  position: absolute;
+  top: 0;
+  left: 50%;
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 5px;
-  overflow: hidden;
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+
+.progress-dot-slot {
+  width: 22px;
+  height: 22px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 22px;
 }
 
 .progress-dot {
@@ -972,6 +1119,7 @@ h2 {
   min-width: 56px;
   display: flex;
   justify-content: flex-end;
+  gap: 6px;
 }
 
 .character-stage {
@@ -1065,6 +1213,45 @@ h2 {
 .practice-controls {
   display: grid;
   gap: 10px;
+}
+
+.practice-settings-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: end center;
+  padding:
+    max(12px, env(safe-area-inset-top))
+    max(12px, env(safe-area-inset-right))
+    max(12px, env(safe-area-inset-bottom))
+    max(12px, env(safe-area-inset-left));
+  background: rgb(31 42 55 / 42%);
+}
+
+.practice-settings-sheet {
+  width: min(100%, 620px);
+  max-height: min(86dvh, 680px);
+  overflow: auto;
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--color-surface);
+  box-shadow: 0 22px 56px rgb(31 42 55 / 24%);
+}
+
+.practice-settings-header {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.practice-toggle-group {
+  gap: 8px;
 }
 
 .answer-actions {
@@ -1548,6 +1735,14 @@ h2 {
     width: 100%;
     min-height: 96px;
   }
+
+  .practice-settings-backdrop {
+    place-items: center;
+  }
+
+  .practice-toggle-group {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (orientation: landscape) {
@@ -1680,6 +1875,34 @@ h2 {
 
   .ui-button--large {
     min-height: 52px;
+  }
+
+  .practice-settings-backdrop {
+    place-items: center end;
+    padding:
+      max(8px, env(safe-area-inset-top))
+      max(10px, env(safe-area-inset-right))
+      max(8px, env(safe-area-inset-bottom))
+      max(10px, env(safe-area-inset-left));
+  }
+
+  .practice-settings-sheet {
+    width: min(420px, 50vw);
+    max-height: calc(100dvh - 16px);
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .practice-settings-header {
+    min-height: 44px;
+  }
+
+  .preview-heading {
+    min-height: 34px;
+  }
+
+  .preview-edit-toggle {
+    min-height: 34px;
   }
 
   .result-page,

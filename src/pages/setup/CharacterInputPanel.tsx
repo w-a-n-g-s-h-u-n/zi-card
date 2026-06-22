@@ -1,4 +1,4 @@
-import { Play, Share2 } from "lucide-react";
+import { Pencil, Play, Share2 } from "lucide-react";
 import type { ChangeEvent } from "react";
 import type { CharacterPreviewItem } from "../../types/character";
 import type { OcrPreviewImage, OcrUiState } from "../../types/ocr";
@@ -21,8 +21,10 @@ type CharacterInputPanelProps = {
   onOcrCandidateChange: (value: string) => void;
   onPinyinChange: (char: string, pinyin: string) => void;
   onPrepareOcr: () => void;
+  onReorderPreviewItems: (fromIndex: number, toIndex: number) => void;
   onRetryOcr: () => void;
   onShare: () => void;
+  onTogglePinyinEdit: () => void;
   onStart: () => void;
 };
 
@@ -41,11 +43,14 @@ export function CharacterInputPanel({
   onOcrCandidateChange,
   onPinyinChange,
   onPrepareOcr,
+  onReorderPreviewItems,
   onRetryOcr,
   onShare,
+  onTogglePinyinEdit,
   onStart,
 }: CharacterInputPanelProps) {
   const canStart = previewItems.length > 0;
+  const hasPolyphonicPreview = previewItems.some((item) => item.pinyinOptions.length > 1);
 
   return (
     <div className="input-panel">
@@ -72,11 +77,29 @@ export function CharacterInputPanel({
         onRetryOcr={onRetryOcr}
       />
 
-      <CharacterPreviewList
-        previewItems={previewItems}
-        showPinyinChoices={showPinyinChoices}
-        onPinyinChange={onPinyinChange}
-      />
+      <div className="preview-panel">
+        <div className="preview-heading">
+          <span>字表预览</span>
+          <strong>{previewItems.length} 个字</strong>
+          {hasPolyphonicPreview ? (
+            <button
+              className="preview-edit-toggle"
+              data-active={showPinyinChoices}
+              type="button"
+              onClick={onTogglePinyinEdit}
+            >
+              <Pencil aria-hidden="true" size={17} />
+              <span>{showPinyinChoices ? "收起读音" : "编辑读音"}</span>
+            </button>
+          ) : null}
+        </div>
+        <CharacterPreviewList
+          previewItems={previewItems}
+          showPinyinChoices={showPinyinChoices}
+          onPinyinChange={onPinyinChange}
+          onReorder={onReorderPreviewItems}
+        />
+      </div>
 
       <div className="input-actions">
         <Button icon={Play} size="large" disabled={!canStart} onClick={onStart}>

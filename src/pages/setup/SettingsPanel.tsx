@@ -1,19 +1,12 @@
-import { BookOpenText, Brush, Dice5, Eye, Type, Volume2 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { Dice5 } from "lucide-react";
 import { MODE_CONFIGS, MODE_ICONS } from "../../modes";
 import type { CharacterDraft } from "../../types/character";
 import type { PracticeResultRecord } from "../../types/result";
 import type { PracticeMode } from "../../types/mode";
-import type { CharacterFont, StoredSettings } from "../../storage/storageTypes";
+import type { StoredSettings } from "../../storage/storageTypes";
 import { SegmentedControl } from "../../ui/SegmentedControl";
 import { Toggle } from "../../ui/Toggle";
 import { RecentListsPanel } from "./RecentListsPanel";
-
-const CHARACTER_FONT_OPTIONS: Array<{ value: CharacterFont; label: string; icon: LucideIcon }> = [
-  { value: "sans", label: "标准", icon: Type },
-  { value: "kai", label: "楷体", icon: BookOpenText },
-  { value: "handwriting", label: "手写", icon: Brush },
-];
 
 type SettingsPanelProps = {
   editingRecentKey: string | null;
@@ -25,7 +18,6 @@ type SettingsPanelProps = {
   onOpenRecentHistory: (drafts: CharacterDraft[]) => void;
   onSettingsChange: (settings: StoredSettings) => void;
   onShareRecent: (drafts: CharacterDraft[]) => void;
-  onUseRecent: (drafts: CharacterDraft[]) => void;
 };
 
 export function SettingsPanel({
@@ -38,7 +30,6 @@ export function SettingsPanel({
   onOpenRecentHistory,
   onSettingsChange,
   onShareRecent,
-  onUseRecent,
 }: SettingsPanelProps) {
   function updateSettings(patch: Partial<StoredSettings>) {
     onSettingsChange({
@@ -67,26 +58,7 @@ export function SettingsPanel({
           label="随机"
           onCheckedChange={(randomOrder) => updateSettings({ randomOrder })}
         />
-        <Toggle
-          checked={settings.showPinyin}
-          icon={<Eye aria-hidden="true" size={21} />}
-          label="拼音"
-          onCheckedChange={(showPinyin) => updateSettings({ showPinyin })}
-        />
-        <Toggle
-          checked={settings.soundEnabled}
-          icon={<Volume2 aria-hidden="true" size={21} />}
-          label="音效"
-          onCheckedChange={(soundEnabled) => updateSettings({ soundEnabled })}
-        />
       </div>
-
-      <SegmentedControl<CharacterFont>
-        label="汉字字形"
-        value={settings.characterFont}
-        onChange={(characterFont) => updateSettings({ characterFont })}
-        options={CHARACTER_FONT_OPTIONS}
-      />
 
       <RecentListsPanel
         editingRecentKey={editingRecentKey}
@@ -96,7 +68,6 @@ export function SettingsPanel({
         onEditRecent={onEditRecent}
         onOpenRecentHistory={onOpenRecentHistory}
         onShareRecent={onShareRecent}
-        onUseRecent={onUseRecent}
       />
     </aside>
   );

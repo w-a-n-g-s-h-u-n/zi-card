@@ -1,4 +1,5 @@
 import { Volume2, X } from "lucide-react";
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import type { CharacterItem } from "../../types/character";
 import { Button } from "../../ui/Button";
@@ -9,6 +10,7 @@ import { createFindCharacterRound } from "./findCharacterLogic";
 type FindCharacterModeProps = {
   item?: CharacterItem;
   allItems: CharacterItem[];
+  extraCardAction?: ReactNode;
   showPinyin: boolean;
   onCorrect: () => void;
   onWrong: (selected: string) => void;
@@ -19,6 +21,7 @@ type FindCharacterModeProps = {
 export function FindCharacterMode({
   item,
   allItems,
+  extraCardAction,
   showPinyin,
   onCorrect,
   onWrong,
@@ -65,14 +68,17 @@ export function FindCharacterMode({
         pinyin={showPinyin ? item?.pinyin : undefined}
         label="找"
         action={
-          <IconButton
-            icon={Volume2}
-            label="读音"
-            title="读音"
-            variant="quiet"
-            onClick={onSpeak}
-            disabled={!item}
-          />
+          <>
+            <IconButton
+              icon={Volume2}
+              label="读音"
+              title="读音"
+              variant="quiet"
+              onClick={onSpeak}
+              disabled={!item}
+            />
+            {extraCardAction}
+          </>
         }
       />
 
