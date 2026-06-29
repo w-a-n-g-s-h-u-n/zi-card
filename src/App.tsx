@@ -587,29 +587,43 @@ export default function App() {
     const currentListIdentity = getCharacterListIdentity(previewDrafts);
     const replaceKey = editingRecentKey === currentListIdentity ? editingRecentKey : undefined;
 
-    startPracticeFromDrafts(previewDrafts, replaceKey);
+    startPracticeFromDrafts(previewDrafts, { replaceKey });
   }
 
-  function startPracticeFromDrafts(drafts: CharacterDraft[], replaceKey?: string) {
+  function startPracticeFromDrafts(
+    drafts: CharacterDraft[],
+    options: {
+      replaceKey?: string;
+      round?: PracticeSession["round"];
+      saveToRecent?: boolean;
+      sourceDrafts?: CharacterDraft[];
+      sourceListIdentity?: string;
+    } = {},
+  ) {
     const items = createCharacterItemsFromDrafts(drafts);
+    const sourceDrafts = options.sourceDrafts ?? drafts;
+    const saveToRecent = options.saveToRecent ?? true;
 
     if (items.length === 0) {
       return;
     }
 
     prepareSpeechSynthesis();
-    const chars = items.map((item) => item.char);
-    saveRecentList(drafts, replaceKey);
-    refreshStoredState();
+    if (saveToRecent) {
+      saveRecentList(sourceDrafts, options.replaceKey);
+      refreshStoredState();
+    }
     setEditingRecentKey(null);
     setIsEditingSelectedRecent(false);
     setSession(
       createPracticeSession({
-        sourceText: joinCharacters(chars),
-        sourceDrafts: drafts,
+        sourceText: joinCharacters(sourceDrafts.map((draft) => draft.char)),
+        sourceDrafts,
+        sourceListIdentity: options.sourceListIdentity,
         items,
         mode: "flashcard",
         randomOrder: settings.randomOrder,
+        round: options.round,
       }),
     );
     setAnswerEditingReturnPage(null);
@@ -944,6 +958,19 @@ export default function App() {
     startPracticeFromDrafts(drafts);
   }
 
+  function practiceResultRecordDrafts(
+    record: PracticeResultRecord,
+    drafts: CharacterDraft[],
+    round: PracticeSession["round"],
+  ) {
+    startPracticeFromDrafts(drafts, {
+      round,
+      saveToRecent: false,
+      sourceDrafts: record.sourceDrafts,
+      sourceListIdentity: record.sourceListIdentity,
+    });
+  }
+
   function updateShareUrl(url: string) {
     window.history.replaceState(null, "", url);
   }
@@ -1112,7 +1139,7 @@ export default function App() {
           onBack={() => setPage("resultHistory")}
           onDelete={deleteResultRecord}
           onEditAnswers={editResultRecord}
-          onPracticeList={practiceDrafts}
+          onPracticeList={practiceResultRecordDrafts}
           onReorderPracticeDrafts={reorderResultRecordPracticeDrafts}
           onSettingsChange={updateSettings}
           onShareResult={(record) => void shareResultRecord(record)}

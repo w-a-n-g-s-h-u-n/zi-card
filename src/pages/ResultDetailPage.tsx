@@ -19,7 +19,7 @@ type ResultDetailPageProps = {
   onBack: () => void;
   onDelete: (record: PracticeResultRecord) => void;
   onEditAnswers: (record: PracticeResultRecord) => void;
-  onPracticeList: (drafts: CharacterDraft[]) => void;
+  onPracticeList: (record: PracticeResultRecord, drafts: CharacterDraft[], round: PracticeResultRecord["round"]) => void;
   onReorderPracticeDrafts: (record: PracticeResultRecord, drafts: CharacterDraft[]) => void;
   onSettingsChange: (settings: StoredSettings) => void;
   onShareResult: (record: PracticeResultRecord) => void;
@@ -80,11 +80,11 @@ export function ResultDetailPage({
           分享识字结果
         </Button>
         {groups.reviewDrafts.length > 0 ? (
-          <Button icon={RotateCcw} size="large" onClick={() => onPracticeList(groups.reviewDrafts)}>
+          <Button icon={RotateCcw} size="large" onClick={() => onPracticeList(record, groups.reviewDrafts, "review")}>
             练待巩固字
           </Button>
         ) : null}
-        <Button icon={BookOpenText} variant="quiet" size="large" onClick={() => onPracticeList(record.sourceDrafts)}>
+        <Button icon={BookOpenText} variant="quiet" size="large" onClick={() => onPracticeList(record, record.sourceDrafts, "main")}>
           练原字表
         </Button>
         <Button icon={Trash2} variant="danger" size="large" onClick={() => onDelete(record)}>
